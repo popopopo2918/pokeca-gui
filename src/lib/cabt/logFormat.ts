@@ -1,11 +1,14 @@
 import cardRows from './cardData.generated.json';
 import attackRows from './attackData.generated.json';
+import jaCardRows from '../cards/cardsJa.generated.json';
 import { CabtAreaType, CabtLogType } from './types';
 import type { ActionTimelineEvent } from '../game/types';
 
 type CardRow = {
   id: number;
   name: string;
+  attacks?: number[];
+  cardType?: number;
 };
 
 type AttackRow = {
@@ -13,8 +16,39 @@ type AttackRow = {
   name: string;
 };
 
+type JaMove = { name?: string; cost?: string; damage?: string; effect?: string };
+type JaCard = { name?: string; moves?: JaMove[] };
+
 const cardDatabase = new Map<number, CardRow>((cardRows as CardRow[]).map((card) => [card.id, card]));
 const attackDatabase = new Map<number, AttackRow>((attackRows as AttackRow[]).map((attack) => [attack.attackId, attack]));
+const jaCards = jaCardRows as Record<string, JaCard>;
+
+// Japanese card names (fall back to English when a JP name is missing).
+const jaCardName = new Map<number, string>();
+for (const [id, card] of Object.entries(jaCards)) {
+  if (card?.name) {
+    jaCardName.set(Number(id), card.name);
+  }
+}
+
+// Japanese attack names keyed by attackId. In the JP data each card's `moves`
+// list shows abilities first and attacks last, so the attacks line up with the
+// LAST entries of `moves` against cardData's `attacks` (the attackId list).
+const jaAttackName = new Map<number, string>();
+for (const card of cardRows as CardRow[]) {
+  const attackIds = card.attacks ?? [];
+  const moves = jaCards[String(card.id)]?.moves ?? [];
+  if (attackIds.length === 0 || moves.length < attackIds.length) {
+    continue;
+  }
+  const offset = moves.length - attackIds.length;
+  attackIds.forEach((attackId, index) => {
+    const name = moves[offset + index]?.name;
+    if (name) {
+      jaAttackName.set(attackId, name);
+    }
+  });
+}
 
 const logTypeNames: Record<number, string> = {
   [CabtLogType.SHUFFLE]: 'Shuffle',
@@ -46,61 +80,66 @@ const logTypeNames: Record<number, string> = {
 export function formatCabtLog(log: Record<string, unknown>): string {
   const type = normalizedLogType(log.type);
   const playerIndex = typeof log.playerIndex === 'number' ? log.playerIndex : undefined;
-  const actor = playerIndex === undefined ? 'Game' : `Player ${playerIndex + 1}`;
+  const actor = playerIndex === undefined ? 'ゲーム' : `プレイヤー${playerIndex + 1}`;
   const card = cardName(Number(log.cardId));
   const target = cardName(Number(log.cardIdTarget));
 
   switch (type) {
     case 'Shuffle':
-      return `${actor} shuffled their deck.`;
+      return `${actor}は山札をシャッフルした。`;
     case 'HasBasicPokemon':
-      return `${actor} ${log.hasBasicPokemon ? 'has' : 'does not have'} a Basic Pokemon.`;
+      return `${actor}は、たねポケモンを${log.hasBasicPokemon ? '持っている' : '持っていない'}。`;
     case 'TurnStart':
-      return `${actor} turn started.`;
+      return `${actor}の番が始まった。`;
     case 'TurnEnd':
-      return `${actor} ended their turn.`;
+      return `${actor}は番を終えた。`;
     case 'Draw':
-      return `${actor} drew ${card}.`;
+      return `${actor}は「${card}」を引いた。`;
     case 'DrawReverse':
-      return `${actor} drew a card.`;
+      return `${actor}はカードを1枚引いた。`;
+    case 'ability':
+      return `${actor}の「${card}」が特性を使った。`;
     case 'Play':
-      return `${actor} played ${card}.`;
+      // Playing a Pokémon means putting it into play; trainers/items/supporters are "used".
+      return cardDatabase.get(Number(log.cardId))?.cardType === 0
+        ? `${actor}は「${card}」を出した。`
+        : `${actor}は「${card}」を使った。`;
     case 'Attach':
-      return `${actor} attached ${card}${Number.isFinite(Number(log.cardIdTarget)) ? ` to ${target}` : ''}.`;
+      return `${actor}は「${card}」を${Number.isFinite(Number(log.cardIdTarget)) ? `「${target}」に` : ''}つけた。`;
     case 'Evolve':
-      return `${actor} evolved into ${card}.`;
+      return `${actor}は「${card}」に進化させた。`;
     case 'Devolve':
-      return `${actor} devolved ${card}.`;
+      return `${actor}は「${card}」を退化させた。`;
     case 'Attack':
-      return `${actor} used ${attackName(Number(log.attackId))} with ${card}.`;
+      return `${actor}は「${card}」で「${attackName(Number(log.attackId))}」を使った。`;
     case 'MoveCard':
       return moveCardMessage(actor, card, log);
     case 'MoveCardReverse':
-      return `${actor} moved a facedown card from ${areaName(log.fromArea)} to ${areaName(log.toArea)}.`;
+      return `${actor}は裏向きのカードを${areaName(log.fromArea)}から${areaName(log.toArea)}へ移動した。`;
     case 'Switch':
-      return `${actor} switched ${cardName(Number(log.cardIdActive))} with ${cardName(Number(log.cardIdBench))}.`;
+      return `${actor}は「${cardName(Number(log.cardIdActive))}」と「${cardName(Number(log.cardIdBench))}」を入れ替えた。`;
     case 'Change':
-      return `${actor} changed ${cardName(Number(log.cardIdBefore))} into ${cardName(Number(log.cardIdAfter))}.`;
+      return `${actor}は「${cardName(Number(log.cardIdBefore))}」を「${cardName(Number(log.cardIdAfter))}」にした。`;
     case 'MoveAttached':
-      return `${actor} moved ${card}.`;
+      return `${actor}は「${card}」を移動した。`;
     case 'HPChange':
       return hpChangeMessage(actor, card, log);
     case 'Poisoned':
-      return `${actor}'s ${card} ${log.isRecover ? 'recovered from poison' : 'was poisoned'}.`;
+      return `${actor}の「${card}」は${log.isRecover ? 'どくから回復した' : 'どく状態になった'}。`;
     case 'Burned':
-      return `${actor}'s ${card} ${log.isRecover ? 'recovered from burn' : 'was burned'}.`;
+      return `${actor}の「${card}」は${log.isRecover ? 'やけどから回復した' : 'やけど状態になった'}。`;
     case 'Asleep':
-      return `${actor}'s ${card} ${log.isRecover ? 'woke up' : 'fell asleep'}.`;
+      return `${actor}の「${card}」は${log.isRecover ? '目を覚ました' : 'ねむり状態になった'}。`;
     case 'Paralyzed':
-      return `${actor}'s ${card} ${log.isRecover ? 'recovered from paralysis' : 'was paralyzed'}.`;
+      return `${actor}の「${card}」は${log.isRecover ? 'まひから回復した' : 'まひ状態になった'}。`;
     case 'Confused':
-      return `${actor}'s ${card} ${log.isRecover ? 'recovered from confusion' : 'was confused'}.`;
+      return `${actor}の「${card}」は${log.isRecover ? 'こんらんから回復した' : 'こんらん状態になった'}。`;
     case 'Coin':
-      return `${actor} flipped ${log.head ? 'heads' : 'tails'}.`;
+      return `${actor}はコインを投げ、${log.head ? 'おもて' : 'うら'}が出た。`;
     case 'Result':
-      return 'The battle finished.';
+      return '対戦が終了した。';
     default:
-      return `${actor}: ${String(type ?? 'Event')}${Number.isFinite(Number(log.cardId)) ? ` ${card}` : ''}.`;
+      return `${actor}：${String(type ?? 'イベント')}${Number.isFinite(Number(log.cardId)) ? `「${card}」` : ''}。`;
   }
 }
 
@@ -128,67 +167,111 @@ function normalizedLogType(type: unknown): string {
 
 function moveCardMessage(actor: string, card: string, log: Record<string, unknown>) {
   if (Number(log.fromArea) === CabtAreaType.PRIZE && Number(log.toArea) === CabtAreaType.HAND) {
-    return `${actor} took ${card} as a Prize card.`;
+    return `${actor}はサイドから「${card}」を取った。`;
   }
   if (Number(log.fromArea) === CabtAreaType.DECK && Number(log.toArea) === CabtAreaType.DISCARD) {
-    return `${actor} discarded ${card} from the deck.`;
+    return `${actor}は山札から「${card}」をトラッシュした。`;
   }
-  return `${actor} moved ${card} from ${areaName(log.fromArea)} to ${areaName(log.toArea)}.`;
+  return `${actor}は「${card}」を${areaName(log.fromArea)}から${areaName(log.toArea)}へ移動した。`;
 }
 
 function hpChangeMessage(actor: string, card: string, log: Record<string, unknown>) {
   const value = Number(log.value);
   if (!Number.isFinite(value) || value === 0) {
-    return `${actor}'s ${card} HP changed.`;
+    return `${actor}の「${card}」のHPが変化した。`;
   }
   const amount = Math.abs(value);
   if (value < 0) {
-    return `${actor}'s ${card} took ${amount} damage.`;
+    return `${actor}の「${card}」は${amount}ダメージを受けた。`;
   }
-  return `${actor}'s ${card} recovered ${amount} HP.`;
+  return `${actor}の「${card}」はHPを${amount}回復した。`;
 }
 
 function areaName(area: unknown): string {
   const areaMap: Record<number, string> = {
-    [CabtAreaType.DECK]: 'deck',
-    [CabtAreaType.HAND]: 'hand',
-    [CabtAreaType.DISCARD]: 'discard',
-    [CabtAreaType.ACTIVE]: 'active',
-    [CabtAreaType.BENCH]: 'bench',
-    [CabtAreaType.PRIZE]: 'prize',
-    [CabtAreaType.STADIUM]: 'stadium',
-    [CabtAreaType.ENERGY]: 'energy',
-    [CabtAreaType.TOOL]: 'tool',
-    [CabtAreaType.PRE_EVOLUTION]: 'evolution stack',
-    [CabtAreaType.PLAYER]: 'player',
-    [CabtAreaType.LOOKING]: 'selection',
+    [CabtAreaType.DECK]: '山札',
+    [CabtAreaType.HAND]: '手札',
+    [CabtAreaType.DISCARD]: 'トラッシュ',
+    [CabtAreaType.ACTIVE]: 'バトル場',
+    [CabtAreaType.BENCH]: 'ベンチ',
+    [CabtAreaType.PRIZE]: 'サイド',
+    [CabtAreaType.STADIUM]: 'スタジアム',
+    [CabtAreaType.ENERGY]: 'エネルギー',
+    [CabtAreaType.TOOL]: 'ポケモンのどうぐ',
+    [CabtAreaType.PRE_EVOLUTION]: '進化元',
+    [CabtAreaType.PLAYER]: 'プレイヤー',
+    [CabtAreaType.LOOKING]: '選択中のカード',
   };
-  return areaMap[Number(area)] ?? 'zone';
+  return areaMap[Number(area)] ?? '領域';
 }
 
 function cardName(id: number): string {
-  return displayName(cardDatabase.get(id)?.name ?? (Number.isFinite(id) ? `Card ${id}` : 'a card'));
+  const ja = jaCardName.get(id);
+  if (ja) {
+    return ja;
+  }
+  const en = cardDatabase.get(id)?.name;
+  if (en) {
+    return displayName(en);
+  }
+  return Number.isFinite(id) ? `カード${id}` : 'カード';
 }
 
 function attackName(id: number): string {
-  const attack = attackDatabase.get(id);
-  if (attack?.name) {
-    return displayName(attack.name);
+  const ja = jaAttackName.get(id);
+  if (ja) {
+    return ja;
   }
-  return Number.isFinite(id) ? `attack ${id}` : 'an attack';
+  const en = attackDatabase.get(id)?.name;
+  if (en) {
+    return displayName(en);
+  }
+  return Number.isFinite(id) ? `ワザ${id}` : 'ワザ';
+}
+
+// Shared Japanese name lookups (also used by the replay step labels).
+export function japaneseCardName(id: number): string {
+  return cardName(id);
+}
+
+export type JaMoveInfo = { name: string; text: string; damage: string };
+
+// Japanese Ability/Attack display data for a card. In the JP data, `moves` lists Abilities first
+// (name prefixed "[特性]") then Attacks, matching the English skills[]/attacks[] order.
+export function japaneseCardMoves(id: number): { abilities: JaMoveInfo[]; attacks: JaMoveInfo[] } {
+  const abilities: JaMoveInfo[] = [];
+  const attacks: JaMoveInfo[] = [];
+  for (const move of jaCards[String(id)]?.moves ?? []) {
+    const raw = (move?.name ?? '').trim();
+    const info: JaMoveInfo = {
+      name: raw.replace(/^\[特性\]\s*/, ''),
+      text: move?.effect ?? '',
+      damage: move?.damage ?? '',
+    };
+    if (raw.startsWith('[特性]')) {
+      abilities.push(info);
+    } else {
+      attacks.push(info);
+    }
+  }
+  return { abilities, attacks };
+}
+
+export function japaneseAttackName(id: number): string {
+  return attackName(id);
 }
 
 function displayName(name: string): string {
   const energyNames: Record<string, string> = {
-    '{C}': 'Colorless',
-    '{G}': 'Grass',
-    '{R}': 'Fire',
-    '{W}': 'Water',
-    '{L}': 'Lightning',
-    '{P}': 'Psychic',
-    '{F}': 'Fighting',
-    '{D}': 'Darkness',
-    '{M}': 'Metal',
+    '{C}': '無',
+    '{G}': '草',
+    '{R}': '炎',
+    '{W}': '水',
+    '{L}': '雷',
+    '{P}': '超',
+    '{F}': '闘',
+    '{D}': '悪',
+    '{M}': '鋼',
   };
   return energyNames[name] ?? name.replace(/\{([A-Z])\}/g, (_match, symbol) => energyNames[`{${symbol}}`] ?? symbol);
 }

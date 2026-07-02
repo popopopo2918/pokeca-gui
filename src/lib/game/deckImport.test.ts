@@ -7,13 +7,35 @@ describe('deck import', () => {
 
     expect(parsed.errors).toEqual([]);
     expect(parsed.cards).toHaveLength(60);
-    expect(parsed.cards).toContain('Mega Abomasnow ex MEG');
-    expect(parsed.cards).toContain('Waitress ASC');
-    expect(parsed.cards).not.toContain('Mega Abomasnow ex MEG 36');
-    expect(parsed.cards).not.toContain('Waitress ASC 215');
-    expect(parsed.cards).not.toContain('Pokemon: 10');
-    expect(parsed.cards).not.toContain('Trainer: 15');
-    expect(parsed.cards).not.toContain('Energy: 35');
+    // Collector numbers are stripped, but the "<name> <SET>" pair the engine resolves is kept.
+    expect(parsed.cards).toContain('キチキギスex SFA');
+    expect(parsed.cards).toContain('テレパス【超】エネルギー POR');
+    expect(parsed.cards.filter((card) => card === 'フーディン MEG')).toHaveLength(3);
+    expect(parsed.cards).not.toContain('キチキギスex SFA 38');
+    expect(parsed.cards).not.toContain('ポケモン: 22');
+    expect(parsed.cards).not.toContain('トレーナーズ: 32');
+    expect(parsed.cards).not.toContain('エネルギー: 6');
+  });
+
+  it('resolves a bare Japanese card name (no set code) to its card id', () => {
+    const parsed = parseDeckList('1 リッチエネルギー');
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.cards).toEqual(['13']);
+  });
+
+  it('reports ambiguous bare names and asks for a set code', () => {
+    const parsed = parseDeckList('3 フーディン');
+
+    expect(parsed.cards).toEqual([]);
+    expect(parsed.errors[0]).toContain('複数のカード');
+  });
+
+  it('reports unknown bare names', () => {
+    const parsed = parseDeckList('1 そんなカードはない');
+
+    expect(parsed.cards).toEqual([]);
+    expect(parsed.errors[0]).toContain('見つかりません');
   });
 
   it('normalizes accented names from deck exports', () => {
@@ -51,14 +73,14 @@ describe('deck import', () => {
       { id: 1145, name: 'Mega Signal', set: 'MEG', setNumber: '121', cardType: 1 },
     ]);
 
-    expect(formatted).toBe(`Pokemon: 4
-4 Mega Abomasnow ex MEG 36
+    expect(formatted).toBe(`ポケモン: 4
+4 メガユキノオーex MEG 36
 
-Trainer: 2
-2 Mega Signal MEG 121
+トレーナーズ: 2
+2 メガシグナル MEG 121
 
-Energy: 54
-54 Basic {W} Energy SVE 3`);
+エネルギー: 54
+54 基本【水】エネルギー SVE 3`);
     expect(parseDeckList(formatted).cards).toHaveLength(60);
   });
 });

@@ -152,7 +152,7 @@ function gameView(): GameView {
   return {
     ready: true,
     phase: 2,
-    phaseLabel: 'Player turn',
+    phaseLabel: 'プレイヤーの番',
     turn: 1,
     activePlayerIndex: 0,
     players: [

@@ -104,7 +104,7 @@ describe('cabtReplayToSnapshot', () => {
       }],
     });
 
-    expect(snapshot.steps[0].label).toBe('Player 1 took 2 Prize cards.');
+    expect(snapshot.steps[0].label).toBe('プレイヤー1はサイドを2枚取った。');
   });
 
   it('uses attack names in replay step labels when card metadata has them', () => {
@@ -138,6 +138,6 @@ describe('cabtReplayToSnapshot', () => {
       }],
     });
 
-    expect(snapshot.steps[0].label).toBe('Player 1 used Myriad Leaf Shower with Teal Mask Ogerpon ex.');
+    expect(snapshot.steps[0].label).toBe('プレイヤー1は「オーガポン みどりのめんex」で「まんようしぐれ」を使った。');
   });
 });

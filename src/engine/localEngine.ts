@@ -18,9 +18,23 @@ import {
   type CabtSelectData,
 } from '../lib/cabt/types';
 import rawCardRows from '../lib/cabt/cardData.generated.json';
+import jaCardRows from '../lib/cards/cardsJa.generated.json';
 import type { ActionTimelineEvent, CardTarget, EngineResponse, GameView, LogView } from '../lib/game/types';
 import { PlayerType, SlotType } from '../lib/game/types';
 import type { ReplayLoadResponse } from '../lib/game/replay';
+import {
+  listProfiles,
+  ensureProfile,
+  listWorkspaceAgents,
+  listAllWorkspaceAgents,
+  workspaceAgentRepoFiles,
+  readWorkspaceAgentDeck,
+  importOfficialSamples,
+  resolveWorkspaceAgentPath,
+  saveWorkspaceAgent,
+  deleteWorkspaceAgent,
+} from './workspaces';
+import { pushFile, deleteRepoPaths } from './dataStore';
 
 type Command = {
   type: string;
@@ -78,11 +92,19 @@ for (const row of CARD_ROWS) {
   }
 }
 
+// Japanese card names by id, so deck lists shown/edited in Japanese still resolve.
+const JA_NAME_BY_ID = new Map<number, string>();
+for (const [id, card] of Object.entries(jaCardRows as Record<string, { name?: string }>)) {
+  if (card?.name) {
+    JA_NAME_BY_ID.set(Number(id), card.name);
+  }
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_ROOT = path.resolve(__dirname, '..', '..');
 const WORKSPACE_ROOT = path.resolve(FRONTEND_ROOT, '..');
 const BRIDGE_PATH = path.join(FRONTEND_ROOT, 'src', 'engine', 'cabt_bridge.py');
-const GAME_LOGS_DIR = path.join(FRONTEND_ROOT, 'public', 'game-logs');
+export const GAME_LOGS_DIR = path.join(FRONTEND_ROOT, 'public', 'game-logs');
 const GAME_LOGS_MANIFEST = path.join(GAME_LOGS_DIR, 'logs.json');
 
 export class LocalEngineController {
@@ -104,7 +126,7 @@ export class LocalEngineController {
   private playerControls: [PlayerControl, PlayerControl] = ['self', 'agent'];
 
   constructor() {
-    this.bridge = new CabtBridgeClient(() => this.invalidateSession('CABT bridge exited.'));
+    this.bridge = new CabtBridgeClient(() => this.invalidateSession('CABTエンジンが終了しました。'));
   }
 
   async handle(command: Command): Promise<EngineResponse> {
@@ -130,7 +152,7 @@ export class LocalEngineController {
         case 'useStadium':
           return await this.selectMatchingOption((option) => option.area === CabtAreaType.STADIUM);
         case 'concede':
-          return { ok: false, error: 'Concede is not exposed by the CABT native engine.', view: this.view() };
+          return { ok: false, error: 'このCABTエンジンでは投了は使用できません。', view: this.view() };
         case 'retreat':
           return await this.retreat(command.payload);
         case 'passTurn':
@@ -138,7 +160,7 @@ export class LocalEngineController {
         case 'resolvePrompt':
           return await this.applySelection(this.normalizePromptSelection(command.payload?.result));
         default:
-          return { ok: false, error: `Unsupported command: ${command.type}`, view: this.view() };
+          return { ok: false, error: `未対応のコマンドです: ${command.type}`, view: this.view() };
       }
     } catch (error) {
       return {
@@ -154,6 +176,69 @@ export class LocalEngineController {
       ok: true,
       replays: [],
     };
+  }
+
+  listProfiles() {
+    return { ok: true, profiles: listProfiles() };
+  }
+
+  createProfile(name: unknown) {
+    const profile = ensureProfile(typeof name === 'string' ? name : '');
+    return { ok: true, profile, profiles: listProfiles() };
+  }
+
+  listWorkspaceAgents(profile: string) {
+    return { ok: true, profile, agents: listWorkspaceAgents(profile) };
+  }
+
+  /** Agents from every profile, so anyone's uploaded AI is selectable by all players. */
+  listAllWorkspaceAgents() {
+    return { ok: true, agents: listAllWorkspaceAgents() };
+  }
+
+  importOfficialSamples(profile: unknown) {
+    const name = typeof profile === 'string' ? profile : '';
+    const copied = importOfficialSamples(name);
+    const agents = listWorkspaceAgents(name);
+    agents.forEach((agent) => this.pushAgentToDataStore(agent.path));
+    return { ok: true, copied, agents };
+  }
+
+  workspaceAgentDeck(profile: string, id: string): string | undefined {
+    return readWorkspaceAgentDeck(profile, id);
+  }
+
+  saveWorkspaceAgent(profile: string, body: { name?: unknown; mainPy?: unknown; deckCsv?: unknown }) {
+    try {
+      const agent = saveWorkspaceAgent(profile, body?.name, body?.mainPy, body?.deckCsv);
+      this.pushAgentToDataStore(agent.path);
+      return { ok: true, agent, agents: listWorkspaceAgents(profile) };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
+  deleteWorkspaceAgent(profile: string, id: string) {
+    const ok = deleteWorkspaceAgent(profile, id);
+    deleteRepoPaths(workspaceAgentRepoFiles(profile, id));
+    return { ok, agents: listWorkspaceAgents(profile) };
+  }
+
+  /** Mirror an agent's files to the persistent Dataset (no-op unless data sync is configured). */
+  private pushAgentToDataStore(agentPath: string) {
+    try {
+      const mainAbs = path.join(WORKSPACE_ROOT, agentPath);
+      if (fs.existsSync(mainAbs)) {
+        pushFile(agentPath, fs.readFileSync(mainAbs));
+      }
+      const deckRepo = agentPath.replace(/main\.py$/, 'deck.csv');
+      const deckAbs = path.join(WORKSPACE_ROOT, deckRepo);
+      if (fs.existsSync(deckAbs)) {
+        pushFile(deckRepo, fs.readFileSync(deckAbs));
+      }
+    } catch {
+      // best-effort persistence
+    }
   }
 
   loadReplay(_id?: string): ReplayLoadResponse {
@@ -187,7 +272,8 @@ export class LocalEngineController {
     };
 
     fs.mkdirSync(GAME_LOGS_DIR, { recursive: true });
-    fs.writeFileSync(path.join(GAME_LOGS_DIR, file), `${JSON.stringify(replay)}\n`);
+    const replayJson = `${JSON.stringify(replay)}\n`;
+    fs.writeFileSync(path.join(GAME_LOGS_DIR, file), replayJson);
     writeGameLogManifest({
       id,
       name,
@@ -196,18 +282,25 @@ export class LocalEngineController {
       players: this.replayPlayerLabels,
       description: `Saved local ${this.replayModeLabel} match${typeof winner === 'number' && winner >= 0 ? `, result ${winner}` : ''}.`,
     });
+    // Mirror the replay + manifest to the persistent Dataset (no-op unless data sync is configured).
+    pushFile(`game-logs/${file}`, replayJson);
+    try {
+      pushFile('game-logs/logs.json', fs.readFileSync(GAME_LOGS_MANIFEST, 'utf8'));
+    } catch {
+      // manifest will be re-pushed on the next save
+    }
     return { ok: true, id, file };
   }
 
   close(): void {
     this.bridge.close();
-    this.invalidateSession('CABT bridge closed.');
+    this.invalidateSession('CABTエンジンを終了しました。');
   }
 
   private async start(payload: any): Promise<EngineResponse> {
     const playerControls = normalizePlayerControls(payload);
-    const player1Deck = resolveDeck(payload?.player1?.deck ?? [], 'Your deck');
-    const player2Deck = resolveDeck(payload?.player2?.deck ?? [], 'Player 2 deck');
+    const player1Deck = resolveDeck(payload?.player1?.deck ?? [], 'あなたのデッキ');
+    const player2Deck = resolveDeck(payload?.player2?.deck ?? [], 'プレイヤー2のデッキ');
     const agentPaths = [
       playerControls[0] === 'agent' ? agentPathForId(payload?.player1?.agentId) : undefined,
       playerControls[1] === 'agent' ? agentPathForId(payload?.player2?.agentId) : undefined,
@@ -236,7 +329,7 @@ export class LocalEngineController {
     this.applyBridgeResponse(response);
     this.logs = [{
       id: this.logId++,
-      message: `Started real CABT match (${this.replayModeLabel}).`,
+      message: `CABT対戦を開始しました（${this.replayModeLabel}）。`,
     }];
     return this.viewResponse();
   }
@@ -257,11 +350,11 @@ export class LocalEngineController {
   private async selectMatchingOption(predicate: (option: CabtOption) => boolean): Promise<EngineResponse> {
     const select = this.observation?.select;
     if (!select) {
-      throw new Error('No CABT selection is currently available.');
+      throw new Error('現在、選択できる操作がありません。');
     }
     const index = select.option.findIndex(predicate);
     if (index < 0) {
-      throw new Error('That action is not currently legal in the CABT engine.');
+      throw new Error('その操作は現在の盤面では選べません。');
     }
     return this.applySelection([index]);
   }
@@ -269,13 +362,13 @@ export class LocalEngineController {
   private async applySelection(selection: number[]): Promise<EngineResponse> {
     const select = this.observation?.select;
     if (!select) {
-      throw new Error('No CABT selection is currently available.');
+      throw new Error('現在、選択できる操作がありません。');
     }
     if (this.canBatchRepeatedSingleSelection(select, selection)) {
       return this.applyRepeatedSingleSelections(selection);
     }
     if (selection.length < select.minCount || selection.length > select.maxCount) {
-      throw new Error(`Selection must contain ${select.minCount}-${select.maxCount} option(s).`);
+      throw new Error(`選択は${select.minCount}〜${select.maxCount}個にしてください。`);
     }
     const response = await this.bridge.request({
       command: 'select',
@@ -296,7 +389,7 @@ export class LocalEngineController {
   private async applyRepeatedSingleSelections(selection: number[]): Promise<EngineResponse> {
     const initialSelect = this.observation?.select;
     if (!initialSelect) {
-      throw new Error('No CABT selection is currently available.');
+      throw new Error('現在、選択できる操作がありません。');
     }
     const selectedKeys = selection.map((index) => this.optionCardKey(initialSelect.option[index]) ?? `index:${index}`);
     for (let step = 0; step < selectedKeys.length; step += 1) {
@@ -398,7 +491,7 @@ export class LocalEngineController {
 
   private applyBridgeResponse(response: BridgeResponse): void {
     if (!response.ok) {
-      throw new Error(response.traceback ? `${response.error}\n${response.traceback}` : (response.error ?? 'CABT bridge failed.'));
+      throw new Error(response.traceback ? `${response.error}\n${response.traceback}` : (response.error ?? 'CABTエンジンでエラーが発生しました。'));
     }
     if (response.cards && response.attacks) {
       this.dataMaps = {
@@ -471,7 +564,8 @@ export class LocalEngineController {
       if (logs.length) {
         const result = cabtLogsToTimeline(logs, { nextId: this.timelineId });
         this.timelineId = result.nextId;
-        this.actionTimeline = [...this.actionTimeline, ...result.events].slice(-200);
+        // Keep the full match log (a long game rarely exceeds a few thousand entries).
+        this.actionTimeline = [...this.actionTimeline, ...result.events].slice(-5000);
       }
 
       const hydratedObservation = this.withKnownHands(observation);
@@ -517,7 +611,7 @@ export class LocalEngineController {
       playerId: playerIndex,
       playerIndex,
       supported: true,
-      message: 'Revealed and discarded cards',
+      message: '公開して捨てたカード',
       resultSchema: 'confirm',
       fields: {
         playbackOnly: true,
@@ -625,19 +719,19 @@ export class LocalEngineController {
     if (Array.isArray(result) && result.every((item) => typeof item === 'number')) {
       return result;
     }
-    throw new Error('This CABT prompt expects option index selections.');
+    throw new Error('この選択には選択肢の番号が必要です。');
   }
 
   private assertSession(payload?: any): void {
     if (!this.sessionId) {
-      throw new Error('No active CABT session. Start a new game.');
+      throw new Error('有効なCABTセッションがありません。新しく対戦を開始してください。');
     }
     const payloadSessionId = payload?.sessionId;
     if (typeof payloadSessionId !== 'string' || !payloadSessionId) {
-      throw new Error('CABT session id is required. Start a new game.');
+      throw new Error('CABTセッションIDが必要です。新しく対戦を開始してください。');
     }
     if (payloadSessionId !== this.sessionId) {
-      throw new Error('CABT session expired. Start a new game.');
+      throw new Error('CABTセッションの有効期限が切れました。新しく対戦を開始してください。');
     }
   }
 
@@ -667,7 +761,7 @@ class CabtBridgeClient {
     await this.ensureStarted(!!options.allowStart);
     const child = this.child;
     if (!child) {
-      throw new Error('CABT session expired. Start a new game.');
+      throw new Error('CABTセッションの有効期限が切れました。新しく対戦を開始してください。');
     }
 
     const id = this.nextId++;
@@ -686,7 +780,7 @@ class CabtBridgeClient {
     }
     this.generation += 1;
     this.child = null;
-    this.rejectPending(new Error('CABT bridge was closed.'));
+    this.rejectPending(new Error('CABTエンジンを終了しました。'));
     child.stdin.destroy();
     child.stdout.destroy();
     child.stderr.destroy();
@@ -726,7 +820,7 @@ class CabtBridgeClient {
       if (this.child !== child || this.generation !== generation) {
         return;
       }
-      const error = new Error(`CABT bridge exited (${code ?? signal}).${this.stderr ? `\n${this.stderr}` : ''}`);
+      const error = new Error(`CABTエンジンが終了しました (${code ?? signal})。${this.stderr ? `\n${this.stderr}` : ''}`);
       this.rejectPending(error);
       this.child = null;
       this.onExit();
@@ -804,7 +898,7 @@ function normalizePlayerControls(payload: any): [PlayerControl, PlayerControl] {
 }
 
 function controlLabel(control: PlayerControl): string {
-  return control === 'agent' ? 'Agent' : 'Self';
+  return control === 'agent' ? 'AI' : '自分';
 }
 
 function compactIsoTimestamp(date: Date): string {
@@ -838,9 +932,9 @@ function readGameLogManifest(): { logs: unknown[] } {
 }
 
 function resolveDeck(cards: unknown[], label: string): number[] {
-  const ids = cards.map((card, index) => resolveCardId(card, `${label} card ${index + 1}`));
+  const ids = cards.map((card, index) => resolveCardId(card, `${label}の${index + 1}枚目`));
   if (ids.length !== 60) {
-    throw new Error(`${label} must contain exactly 60 cards, found ${ids.length}.`);
+    throw new Error(`${label}はちょうど60枚にしてください（現在${ids.length}枚）。`);
   }
   return ids;
 }
@@ -850,7 +944,7 @@ function resolveCardId(card: unknown, label: string): number {
     return card;
   }
   if (typeof card !== 'string') {
-    throw new Error(`${label}: expected card name or id.`);
+    throw new Error(`${label}: カード名またはIDが必要です。`);
   }
   if (/^\d+$/.test(card.trim())) {
     return Number(card.trim());
@@ -859,14 +953,18 @@ function resolveCardId(card: unknown, label: string): number {
   const tokens = card.trim().split(/\s+/);
   const set = tokens.at(-1);
   const name = normalizeCardName(tokens.slice(0, -1).join(' '));
-  const candidates = uniqueCardRows().filter((row) => row.set === set && normalizeCardName(row.name) === name);
+  const candidates = uniqueCardRows().filter(
+    (row) =>
+      row.set === set
+      && (normalizeCardName(row.name) === name || normalizeCardName(JA_NAME_BY_ID.get(row.id) ?? '') === name),
+  );
   if (candidates.length === 1) {
     return candidates[0].id;
   }
   if (candidates.length > 1) {
-    throw new Error(`${label}: ${card} matches multiple CABT card IDs.`);
+    throw new Error(`${label}: 「${card}」が複数のカードに一致します。`);
   }
-  throw new Error(`${label}: could not resolve "${card}" to a CABT card ID.`);
+  throw new Error(`${label}: 「${card}」をカードIDに解決できませんでした。`);
 }
 
 function enrichCardData(card: CabtCardData): CabtCardData {
@@ -886,7 +984,7 @@ function uniqueCardRows() {
 }
 
 function normalizeCardName(name: string): string {
-  const withoutAccents = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const withoutAccents = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC');
   const normalized = withoutAccents.replace(/[’‘]/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
   const energy = /^([a-z]+) energy$/.exec(normalized);
   if (!energy) {
@@ -908,6 +1006,9 @@ function normalizeCardName(name: string): string {
 function agentPathForId(agentId: string | undefined): string | undefined {
   if (!agentId) {
     return undefined;
+  }
+  if (agentId.startsWith('ws:')) {
+    return resolveWorkspaceAgentPath(agentId);
   }
   const manifestPath = path.join(FRONTEND_ROOT, 'public', 'agents', 'agents.json');
   if (!fs.existsSync(manifestPath)) {

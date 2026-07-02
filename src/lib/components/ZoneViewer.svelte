@@ -28,7 +28,7 @@
 </script>
 
 {#if open}
-  <button type="button" class="zone-viewer-backdrop" aria-label="Close zone viewer" onclick={close}></button>
+  <button type="button" class="zone-viewer-backdrop" aria-label="ゾーンビューアを閉じる" onclick={close}></button>
   <section class="zone-viewer" aria-label={title}>
     <div class="zone-viewer-header" class:has-action={!!actionLabel}>
       <strong>{title}</strong>
@@ -36,7 +36,7 @@
       {#if actionLabel}
         <button type="button" disabled={actionDisabled} title={actionTitle} onclick={onAction}>{actionLabel}</button>
       {/if}
-      <button type="button" onclick={close}>Close</button>
+      <button type="button" onclick={close}>閉じる</button>
     </div>
     {#if cards.length}
       <div class="zone-card-grid">
@@ -45,7 +45,7 @@
         {/each}
       </div>
     {:else}
-      <p class="zone-empty">Empty</p>
+      <p class="zone-empty">なし</p>
     {/if}
   </section>
 {/if}

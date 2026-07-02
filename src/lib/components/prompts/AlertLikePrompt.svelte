@@ -18,7 +18,7 @@
 
 <PromptPanel
   title={promptTitle(prompt)}
-  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'This prompt needs the advanced resolver.') : undefined}
+  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'このプロンプトは高度なリゾルバが必要です。') : undefined}
 >
   {#if cards.length}
     <div class="prompt-card-list">
@@ -28,10 +28,10 @@
     </div>
   {/if}
   {#if autoContinue}
-    <p class="prompt-hint">Auto-continues in 3 seconds.</p>
+    <p class="prompt-hint">3秒後に自動で続行します。</p>
   {/if}
 
   {#snippet actions()}
-    <button class="primary" disabled={resolving} onclick={() => onresolve(true)}>Continue</button>
+    <button class="primary" disabled={resolving} onclick={() => onresolve(true)}>続ける</button>
   {/snippet}
 </PromptPanel>

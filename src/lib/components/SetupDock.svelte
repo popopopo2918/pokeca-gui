@@ -10,7 +10,7 @@
 </script>
 
 <div class="setup-dock">
-  <strong>Choose your starting Pokemon</strong>
+  <strong>最初のポケモンを選ぶ</strong>
   <span>
     {needsActive
       ? 'Drag a highlighted Basic to Active, then optionally place Basics on the Bench.'

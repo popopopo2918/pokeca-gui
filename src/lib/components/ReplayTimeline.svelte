@@ -60,15 +60,15 @@
   }
 </script>
 
-<button class="replay-back-button" aria-label="Back to replay list" onclick={backToReplayHome}>Back</button>
+<button class="replay-back-button" aria-label="リプレイ一覧へ戻る" onclick={backToReplayHome}>戻る</button>
 
-<section class="replay-dock" aria-label="Replay timeline">
+<section class="replay-dock" aria-label="リプレイのタイムライン">
   <div class="replay-caption" title={step.label}>
     <span>{step.label}</span>
   </div>
-  <div class="replay-controls" aria-label="Replay playback controls">
-    <button aria-label="First action" onclick={firstStep} disabled={stepIndex === 0}>|&lt;</button>
-    <button aria-label="Previous action" onclick={previousStep} disabled={stepIndex === 0}>&lt;</button>
+  <div class="replay-controls" aria-label="リプレイの再生操作">
+    <button aria-label="最初の行動" onclick={firstStep} disabled={stepIndex === 0}>|&lt;</button>
+    <button aria-label="前の行動" onclick={previousStep} disabled={stepIndex === 0}>&lt;</button>
     <button
       class="playback-toggle"
       aria-label={isPlaying ? 'Pause replay' : 'Play replay'}
@@ -83,19 +83,19 @@
       {/if}
     </button>
     <input
-      aria-label="Action step"
+      aria-label="行動ステップ"
       type="range"
       min="0"
       max={maxStepIndex}
       value={stepIndex}
       oninput={onStepInput}
     />
-    <button aria-label="Next action" onclick={nextStep} disabled={stepIndex >= maxStepIndex}>&gt;</button>
-    <button aria-label="Last action" onclick={lastStep} disabled={stepIndex >= maxStepIndex}>&gt;|</button>
+    <button aria-label="次の行動" onclick={nextStep} disabled={stepIndex >= maxStepIndex}>&gt;</button>
+    <button aria-label="最後の行動" onclick={lastStep} disabled={stepIndex >= maxStepIndex}>&gt;|</button>
   </div>
 </section>
 
-<aside class="replay-details" aria-label="Replay details">
+<aside class="replay-details" aria-label="リプレイの詳細">
   <div class="replay-meta">
     <strong>{replay.name}</strong>
     <span>{playerLabel}</span>
@@ -103,9 +103,9 @@
   </div>
 
   <div class="replay-readout">
-    <span>Action <b>{actionValue}</b></span>
-    <span>State <b>{stateValue}</b></span>
-    <span>Turn <b>{step.turn}</b></span>
+    <span>アクション <b>{actionValue}</b></span>
+    <span>状態 <b>{stateValue}</b></span>
+    <span>ターン <b>{step.turn}</b></span>
     <span>{step.label}</span>
   </div>
 
@@ -113,7 +113,7 @@
     <label>
       State
       <input
-        aria-label="State index"
+        aria-label="状態インデックス"
         type="number"
         min="0"
         max={maxStateIndex}

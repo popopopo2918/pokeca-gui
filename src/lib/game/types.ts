@@ -42,6 +42,8 @@ export type CardView = {
 
 export type AttackView = {
   name: string;
+  // `name` stays the engine identifier (English) for action matching; `label` is the JP display.
+  label?: string;
   cost?: unknown;
   damage?: string;
   text?: string;
@@ -49,6 +51,7 @@ export type AttackView = {
 
 export type PowerView = {
   name: string;
+  label?: string;
   powerType?: string | number;
   text?: string;
 };

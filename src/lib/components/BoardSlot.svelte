@@ -1,6 +1,7 @@
 <script lang="ts">
   import CardTile from './CardTile.svelte';
   import { energyIconSrc, pokemonTypeIconSrc, pokemonTypeLabelFor } from '../game/energyIcons';
+  import { boardGlowStore } from '../../state/boardGlow.svelte';
   import type { PokemonSlotView } from '../game/types';
 
   type Props = {
@@ -29,6 +30,8 @@
     ondrop,
   }: Props = $props();
 
+  // Glow this Pokémon briefly when its Ability is used (driven by boardGlowStore).
+  let abilityGlow = $derived(!slot.empty && boardGlowStore.isGlowing(slot.ownerIndex, slot.pokemon?.id));
   let stackedEnergy = $derived(slot.energy.length > 4);
   let displayHp = $derived(slot.hp || pokemonHp(slot.pokemon));
   let printedHp = $derived(pokemonHp(slot.pokemon));
@@ -77,12 +80,13 @@
   class:can-drop={canDrop}
   class:prompt-selectable={promptSelectable}
   class:prompt-selected={promptSelected}
+  class:ability-glow={abilityGlow}
   class={`board-slot ${placement}`}
   data-testid={`slot-${slot.ownerIndex}-${slot.slot}-${slot.index}`}
   data-owner-index={slot.ownerIndex}
   data-slot-kind={slot.slot}
   data-slot-index={slot.index}
-  title={slot.pokemon?.fullName ?? (slot.slot === 'active' ? 'Active' : `Bench ${slot.index + 1}`)}
+  title={slot.pokemon?.fullName ?? (slot.slot === 'active' ? 'バトル場' : `ベンチ${slot.index + 1}`)}
   {onclick}
   {ondragover}
   {ondrop}
@@ -199,6 +203,31 @@
   .board-slot.prompt-selected {
     background: var(--selection-bg);
     box-shadow: var(--glow-selected-shadow);
+  }
+
+  /* Ability activation highlight: a pulsing golden glow around the Pokémon that used its Ability. */
+  .board-slot.ability-glow {
+    z-index: 6;
+    border-radius: 8px;
+    animation: ability-glow-pulse 0.9s ease-in-out infinite alternate;
+  }
+
+  @keyframes ability-glow-pulse {
+    from {
+      box-shadow: 0 0 0 2px rgba(255, 214, 92, 0.9), 0 0 12px 3px rgba(255, 196, 40, 0.55);
+      filter: brightness(1.05) saturate(1.08);
+    }
+    to {
+      box-shadow: 0 0 0 3px rgba(255, 224, 130, 1), 0 0 26px 10px rgba(255, 190, 30, 0.85);
+      filter: brightness(1.14) saturate(1.18);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .board-slot.ability-glow {
+      animation: none;
+      box-shadow: 0 0 0 3px rgba(255, 214, 92, 0.95), 0 0 18px 6px rgba(255, 196, 40, 0.7);
+    }
   }
 
   .board-slot > :global(.card-tile) {

@@ -75,8 +75,8 @@
 </script>
 
 <PromptPanel
-  title={promptTitle(prompt, 'Choose prize')}
-  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'This prompt needs the advanced resolver.') : undefined}
+  title={promptTitle(prompt, 'サイドを選ぶ')}
+  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'このプロンプトは高度なリゾルバが必要です。') : undefined}
 >
   {#snippet icon()}<PromptIcon name="prize" />{/snippet}
 
@@ -99,7 +99,7 @@
 
   {#snippet actions()}
     {#if options.allowCancel}
-      <button disabled={resolving} onclick={() => onresolve(null)}>Cancel</button>
+      <button disabled={resolving} onclick={() => onresolve(null)}>キャンセル</button>
     {/if}
     <button class="primary" disabled={resolving || selectedIndexes.length < minSelections} onclick={submitSelectedIndexes}>
       Confirm

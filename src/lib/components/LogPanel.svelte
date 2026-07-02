@@ -9,11 +9,12 @@
 
   let { logs = [], timeline = [] }: Props = $props();
   let entries = $derived(timeline.length ? timeline : logs);
-  let visibleEntries = $derived(entries.slice(-18).reverse());
+  // Show the full log (newest first), scrollable — every action is recorded, nothing is truncated.
+  let visibleEntries = $derived(entries.slice().reverse());
 </script>
 
 <aside class="log-panel">
-  <h2>{timeline.length ? 'Timeline' : 'Log'}</h2>
+  <h2>{timeline.length ? '行動ログ' : 'ログ'}</h2>
   {#each visibleEntries as entry}
     <p>{labelFor(entry.message)}</p>
   {/each}
@@ -26,10 +27,10 @@
     right: 14px;
     top: auto;
     bottom: 14px;
-    width: 128px;
+    width: 150px;
     transform: none;
     align-self: center;
-    max-height: min(28vh, 220px);
+    max-height: min(46vh, 460px);
     overflow: auto;
     padding: 9px;
     border: 1px solid var(--surface-toolbar-border);

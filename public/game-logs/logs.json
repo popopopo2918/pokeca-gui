@@ -1,17 +1,56 @@
 {
   "logs": [
     {
+      "id": "local-20260627092614",
+      "name": "Local Agent vs Agent 6/27/2026, 6:26:14 PM",
+      "file": "local-20260627092614.json",
+      "createdAt": "2026-06-27T09:26:14.121Z",
+      "players": [
+        "A",
+        "B"
+      ],
+      "description": "Saved local Agent vs Agent match, result 0."
+    },
+    {
+      "id": "local-20260620153042",
+      "name": "Local Self vs Agent 6/21/2026, 12:30:42 AM",
+      "file": "local-20260620153042.json",
+      "createdAt": "2026-06-20T15:30:42.043Z",
+      "players": [
+        "Player 1",
+        "Player 2"
+      ],
+      "description": "Saved local Self vs Agent match, result 0."
+    },
+    {
+      "id": "local-20260620152941",
+      "name": "Local Agent vs Agent 6/21/2026, 12:29:41 AM",
+      "file": "local-20260620152941.json",
+      "createdAt": "2026-06-20T15:29:41.891Z",
+      "players": [
+        "Player 1",
+        "Player 2"
+      ],
+      "description": "Saved local Agent vs Agent match, result 0."
+    },
+    {
       "id": "cabt-runner-sample",
       "name": "CABT runner sample",
       "file": "cabt-match.json",
-      "players": ["Runner policy", "Runner policy"],
+      "players": [
+        "Runner policy",
+        "Runner policy"
+      ],
       "description": "Raw CABT runner output from the local sample policy."
     },
     {
       "id": "kaggle-context-sample",
       "name": "Kaggle context sample",
       "file": "kaggle-context.json",
-      "players": ["Sample agent", "Sample agent"],
+      "players": [
+        "Sample agent",
+        "Sample agent"
+      ],
       "description": "Kaggle-environments context artifact for replay adapter testing."
     }
   ]

@@ -23,7 +23,7 @@
   {#if modeLabel && !gameFinished}
     <span class="mode">{modeLabel}</span>
   {/if}
-  <span>Turn {turn}</span>
+  <span>ターン {turn}</span>
   {#if !gameFinished}
     <span>{activePlayerName}</span>
   {/if}

@@ -9,7 +9,7 @@ describe('CABT log formatting', () => {
       playerIndex: 0,
       cardId: 723,
       attackId: 1046,
-    })).toBe('Player 1 used Hammer-lanche with Mega Abomasnow ex.');
+    })).toBe('プレイヤー1は「メガユキノオーex」で「アバランチハンマー」を使った。');
 
     expect(formatCabtLog({
       type: CabtLogType.MOVE_CARD,
@@ -17,21 +17,40 @@ describe('CABT log formatting', () => {
       cardId: 3,
       fromArea: CabtAreaType.DECK,
       toArea: CabtAreaType.DISCARD,
-    })).toBe('Player 1 discarded Basic Water Energy from the deck.');
+    })).toBe('プレイヤー1は山札から「基本【水】エネルギー」をトラッシュした。');
 
     expect(formatCabtLog({
       type: CabtLogType.HP_CHANGE,
       playerIndex: 1,
       cardId: 722,
       value: -200,
-    })).toBe("Player 2's Snover took 200 damage.");
+    })).toBe('プレイヤー2の「ユキカブリ」は200ダメージを受けた。');
 
     expect(formatCabtLog({
       type: CabtLogType.MOVE_CARD_REVERSE,
       playerIndex: 0,
       fromArea: CabtAreaType.PRIZE,
       toArea: CabtAreaType.HAND,
-    })).toBe('Player 1 moved a facedown card from prize to hand.');
+    })).toBe('プレイヤー1は裏向きのカードをサイドから手札へ移動した。');
+  });
+
+  it('records ability use and distinguishes placing a Pokémon from using a trainer', () => {
+    // Synthetic ability log injected by the engine bridge (type: 'ability').
+    expect(formatCabtLog({ type: 'ability', playerIndex: 0, cardId: 743 }))
+      .toBe('プレイヤー1の「フーディン」が特性を使った。');
+    // Playing a Pokémon = putting it into play.
+    expect(formatCabtLog({ type: CabtLogType.PLAY, playerIndex: 0, cardId: 743 }))
+      .toBe('プレイヤー1は「フーディン」を出した。');
+    // Playing a trainer/item = using it.
+    expect(formatCabtLog({ type: CabtLogType.PLAY, playerIndex: 1, cardId: 1152 }))
+      .toBe('プレイヤー2は「ポケパッド」を使った。');
+  });
+
+  it('tags ability timeline events with the ability kind', () => {
+    const result = cabtLogsToTimeline([{ type: 'ability', playerIndex: 0, cardId: 743 }]);
+    expect(result.events[0]).toEqual(
+      expect.objectContaining({ kind: 'ability', message: 'プレイヤー1の「フーディン」が特性を使った。' }),
+    );
   });
 
   it('assigns stable ids when converting log batches to timeline events', () => {
@@ -42,8 +61,8 @@ describe('CABT log formatting', () => {
 
     expect(result.nextId).toBe(9);
     expect(result.events).toEqual([
-      expect.objectContaining({ id: 7, message: 'Player 2 turn started.', kind: 'TurnStart' }),
-      expect.objectContaining({ id: 8, message: 'Player 2 ended their turn.', kind: 'TurnEnd' }),
+      expect.objectContaining({ id: 7, message: 'プレイヤー2の番が始まった。', kind: 'TurnStart' }),
+      expect.objectContaining({ id: 8, message: 'プレイヤー2は番を終えた。', kind: 'TurnEnd' }),
     ]);
   });
 });

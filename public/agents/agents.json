@@ -2,29 +2,43 @@
   "agents": [
     {
       "id": "first-legal",
-      "name": "First legal option",
-      "description": "Uses the first legal CABT selection whenever the local engine controls the opponent."
+      "name": "最初の有効手",
+      "description": "ローカルエンジンが相手を操作するとき、常に最初の有効な選択肢を選びます。"
     },
     {
       "id": "official-random-abomasnow",
-      "name": "Official random sample (Mega Abomasnow)",
-      "description": "Kaggle sample-submission policy: chooses a random legal option with the bundled Mega Abomasnow ex deck.",
+      "name": "公式ランダムサンプル（メガユキノオーex）",
+      "description": "Kaggle公式サンプル：付属のメガユキノオーexデッキで、有効な手をランダムに選びます。",
       "path": "public/agents/official-random-abomasnow/main.py",
       "deckUrl": "/agents/official-random-abomasnow/deck.csv"
     },
     {
       "id": "mega-lucario-ex",
-      "name": "Rule-based Mega Lucario ex",
-      "description": "Kaggle notebook sample: rule-based Mega Lucario ex deck that pivots between Lucario, Hariyama, and Solrock.",
+      "name": "ルールベース メガルカリオex",
+      "description": "Kaggleノートブックのサンプル：ルカリオ・ハリテヤマ・ソルロックを切り替えるルールベースのメガルカリオexデッキ。",
       "path": "public/agents/mega-lucario-ex/main.py",
       "deckUrl": "/agents/mega-lucario-ex/deck.csv"
     },
     {
       "id": "dragapult-ex",
-      "name": "Rule-based Dragapult ex",
-      "description": "Kaggle notebook sample: rule-based Dragapult ex deck focused on early setup and Phantom Dive pressure.",
+      "name": "ルールベース ドラパルトex",
+      "description": "Kaggleノートブックのサンプル：序盤の展開とファントムダイブの圧力に特化したルールベースのドラパルトexデッキ。",
       "path": "public/agents/dragapult-ex/main.py",
       "deckUrl": "/agents/dragapult-ex/deck.csv"
+    },
+    {
+      "id": "mega-abomasnow-ex",
+      "name": "ルールベース メガユキノオーex",
+      "description": "清田公式サンプル：アバランチハンマーで攻める、初心者向けのメガユキノオーexデッキ。",
+      "path": "public/agents/mega-abomasnow-ex/main.py",
+      "deckUrl": "/agents/mega-abomasnow-ex/deck.csv"
+    },
+    {
+      "id": "iono",
+      "name": "ルールベース ナンジャモデッキ",
+      "description": "清田公式サンプル：ポケモンにエネルギーをためて強力なボルテックチェーンを放つ、中級者向けのナンジャモデッキ。",
+      "path": "public/agents/iono/main.py",
+      "deckUrl": "/agents/iono/deck.csv"
     }
   ]
 }

@@ -34,7 +34,7 @@
 {#if collapsed}
   <section class="prompt-panel prompt-panel-collapsed">
     <button type="button" class="primary" onclick={() => (collapsed = false)}>
-      Show {title}
+      {title}を表示
     </button>
   </section>
 {:else}
@@ -59,7 +59,7 @@
       <div class="prompt-actions">
         <div class="prompt-actions-left">
           {#if collapsible}
-            <button type="button" onclick={() => (collapsed = true)}>Hide</button>
+            <button type="button" onclick={() => (collapsed = true)}>隠す</button>
           {/if}
         </div>
         <div class="prompt-actions-main">

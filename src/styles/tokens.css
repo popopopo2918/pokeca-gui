@@ -11,6 +11,9 @@
 
   --transition-fast: 140ms ease;
 
+  /* Trading-card holographic foil — the signature accent, used sparingly. */
+  --holo-gradient: linear-gradient(108deg, #5ce1e6 0%, #8a7cff 46%, #ff7fb4 100%);
+
   --app-bg: #dfe1e5;
   --app-text: #1d232b;
   --app-backdrop-bg:
@@ -138,36 +141,37 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --app-bg: #1a1f27;
-  --app-text: #f5f8ff;
+  --app-bg: #0a0b0f;
+  --app-text: #eef1f7;
   --app-backdrop-bg:
-    radial-gradient(circle at 50% 48%, rgba(96, 114, 134, 0.16), transparent 34%),
-    #1a1f27;
+    radial-gradient(120% 85% at 50% -8%, rgba(92, 226, 220, 0.10), transparent 56%),
+    radial-gradient(circle at 50% 118%, rgba(138, 124, 255, 0.07), transparent 50%),
+    #0a0b0f;
 
-  --surface-glass-bg: rgba(12, 15, 19, 0.88);
-  --surface-glass-border: rgba(255, 255, 255, 0.08);
-  --surface-glass-shadow: 0 24px 68px rgba(12, 15, 19, 0.34);
+  --surface-glass-bg: rgba(18, 20, 27, 0.82);
+  --surface-glass-border: rgba(255, 255, 255, 0.09);
+  --surface-glass-shadow: 0 30px 80px rgba(0, 0, 0, 0.60);
 
-  --surface-inset-bg: rgba(255, 255, 255, 0.05);
-  --surface-inset-border: rgba(255, 255, 255, 0.10);
+  --surface-inset-bg: rgba(255, 255, 255, 0.045);
+  --surface-inset-border: rgba(255, 255, 255, 0.08);
 
-  --surface-toolbar-bg: rgba(12, 15, 19, 0.76);
+  --surface-toolbar-bg: rgba(13, 15, 21, 0.74);
   --surface-toolbar-border: rgba(255, 255, 255, 0.08);
-  --surface-toolbar-shadow: 0 10px 24px rgba(12, 15, 19, 0.18);
+  --surface-toolbar-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
 
-  --text-primary: rgba(245, 248, 255, 0.94);
-  --text-secondary: rgba(245, 248, 255, 0.74);
-  --text-muted: rgba(245, 248, 255, 0.58);
-  --text-on-accent: #ffffff;
+  --text-primary: #eef1f7;
+  --text-secondary: rgba(238, 241, 247, 0.64);
+  --text-muted: rgba(238, 241, 247, 0.42);
+  --text-on-accent: #04141a;
 
-  --accent-base: #29a18b;
-  --accent-strong: rgba(143, 232, 206, 0.96);
-  --accent-soft: rgba(143, 232, 206, 0.22);
-  --accent-tint: rgba(143, 232, 206, 0.10);
-  --accent-glow-soft: 0 0 22px rgba(41, 161, 139, 0.20);
-  --accent-glow-strong: 0 0 30px rgba(41, 161, 139, 0.38);
-  --glow-ring-rgb: 116 232 140;
-  --glow-aura-rgb: 67 136 84;
+  --accent-base: #2fe0d6;
+  --accent-strong: #74f1ea;
+  --accent-soft: rgba(47, 224, 214, 0.22);
+  --accent-tint: rgba(47, 224, 214, 0.10);
+  --accent-glow-soft: 0 0 22px rgba(47, 224, 214, 0.22);
+  --accent-glow-strong: 0 0 34px rgba(47, 224, 214, 0.42);
+  --glow-ring-rgb: 92 226 220;
+  --glow-aura-rgb: 47 224 214;
   --glow-tint: rgb(var(--glow-ring-rgb) / 0.10);
   --glow-aura-soft: 0 0 8px rgb(var(--glow-aura-rgb) / 0.42);
   --glow-aura: 0 0 10px rgb(var(--glow-aura-rgb) / 0.48);
@@ -202,14 +206,14 @@
   --selection-border-strong: rgba(143, 232, 206, 0.78);
   --selection-bg: var(--glow-tint);
 
-  --button-bg: rgba(255, 255, 255, 0.08);
+  --button-bg: rgba(255, 255, 255, 0.055);
   --button-border: rgba(255, 255, 255, 0.14);
   --button-text: var(--text-primary);
   --button-hover-border: var(--accent-base);
 
-  --button-primary-bg: #278371;
-  --button-primary-border: #1e6f60;
-  --button-primary-text: #ffffff;
+  --button-primary-bg: #2fe0d6;
+  --button-primary-border: #2fe0d6;
+  --button-primary-text: #04141a;
 
   --button-ghost-bg: rgba(255, 255, 255, 0.07);
   --button-ghost-border: rgba(255, 255, 255, 0.12);
@@ -219,9 +223,9 @@
   --input-border: rgba(255, 255, 255, 0.12);
   --input-text: var(--text-primary);
 
-  --overlay-backdrop-bg: rgba(5, 8, 12, 0.36);
+  --overlay-backdrop-bg: rgba(2, 3, 6, 0.55);
 
-  --board-plane-bg: rgba(25, 31, 38, 0.72);
+  --board-plane-bg: rgba(14, 16, 23, 0.74);
   --board-plane-debug-bg:
     linear-gradient(rgba(14, 165, 233, 0.10), rgba(14, 165, 233, 0.10)),
     rgba(25, 31, 38, 0.72);

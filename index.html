@@ -10,7 +10,7 @@
           const storedPreference = localStorage.getItem('cabt.theme');
           const preference = storedPreference === 'dark' || storedPreference === 'light' || storedPreference === 'system'
             ? storedPreference
-            : 'system';
+            : 'dark';
           const theme = preference === 'dark' || preference === 'light'
             ? preference
             : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -18,8 +18,8 @@
           document.documentElement.dataset.themePreference = preference;
           document.documentElement.style.colorScheme = theme;
         } catch {
-          document.documentElement.dataset.theme = 'light';
-          document.documentElement.dataset.themePreference = 'system';
+          document.documentElement.dataset.theme = 'dark';
+          document.documentElement.dataset.themePreference = 'dark';
         }
       })();
     </script>

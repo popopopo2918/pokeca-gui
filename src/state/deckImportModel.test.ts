@@ -18,8 +18,8 @@ describe('deck import model', () => {
 
     expect(decks.ok).toBe(false);
     if (!decks.ok) {
-      expect(decks.error).toContain('Your deck: Line 1: card names must include a set code');
-      expect(decks.error).toContain('AI opponent deck: Deck is empty.');
+      expect(decks.error).toContain('あなたのデッキ: 1行目: 「Bad Card」が見つかりません');
+      expect(decks.error).toContain('AI対戦相手のデッキ: デッキが空です。');
     }
   });
 });

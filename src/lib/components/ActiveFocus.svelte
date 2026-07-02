@@ -1,6 +1,7 @@
 <script lang="ts">
   import CardTile from './CardTile.svelte';
   import { normalizedTypeName, pokemonTypeIconSrc, pokemonTypeLabelFor } from '../game/energyIcons';
+  import { japaneseCardName, japaneseCardMoves } from '../cabt/logFormat';
   import type { AttackView, AvailableActionsView, CardTarget, CardView, PokemonSlotView } from '../game/types';
 
   type Props = {
@@ -32,6 +33,12 @@
   }: Props = $props();
 
   let pokemon = $derived(slot.pokemon);
+  // Japanese display names/text resolved by card id (the CardView keeps English identifiers so the
+  // ability/attack onclick still matches the engine's action options).
+  let jaName = $derived(pokemon?.id ? japaneseCardName(pokemon.id) : (pokemon?.name ?? ''));
+  let jaMoves = $derived(
+    pokemon?.id ? japaneseCardMoves(pokemon.id) : { abilities: [], attacks: [] },
+  );
   let inspectingAttachments = $state(false);
   let isActive = $derived(slot.slot === 'active');
   let actionsDisabled = $derived(busy || promptActive || !canAct);
@@ -151,7 +158,7 @@
   <button
     type="button"
     class="active-focus-backdrop"
-    aria-label="Close Pokemon actions"
+    aria-label="ポケモンの操作を閉じる"
     onclick={close}
   ></button>
   <section class="active-focus" class:inspecting={inspectingAttachments} aria-label={`${pokemon.name} actions`}>
@@ -159,11 +166,11 @@
       <div class="attachment-inspector" role="dialog" aria-modal="false" aria-label={`${pokemon.name} attached cards`}>
         <div class="attachment-inspector-topline">
           <div>
-            <strong>Attached to {pokemon.name}</strong>
-            <span>{detailAttachments.length} card{detailAttachments.length === 1 ? '' : 's'}</span>
+            <strong>「{jaName}」についているカード</strong>
+            <span>{detailAttachments.length}枚</span>
           </div>
-          <button type="button" class="focus-close" onclick={() => (inspectingAttachments = false)} aria-label="Close attached cards">
-            Close
+          <button type="button" class="focus-close" onclick={() => (inspectingAttachments = false)} aria-label="ついているカードを閉じる">
+            閉じる
           </button>
         </div>
         <div class="attachment-rail">
@@ -206,7 +213,7 @@
         <div class="focus-title">
           <div>
             <div class="focus-name-line">
-              <strong>{pokemon.name}</strong>
+              <strong>{jaName}</strong>
               <span class="focus-hp-badge" class:hp-increased={hpIncreased} class:hp-decreased={hpDecreased}>
                 <span>{remainingHp}</span>
                 <span class="hp-divider">/</span>
@@ -218,15 +225,15 @@
               </span>
             </div>
             <span class="focus-meta">
-              {slot.slot === 'active' ? 'Active' : `Bench ${slot.index + 1}`}
-              · {slot.energy.length} Energy
+              {slot.slot === 'active' ? 'バトル場' : `ベンチ${slot.index + 1}`}
+              · エネルギー{slot.energy.length}個
               {#if slot.tools.length}
-                · {slot.tools.length} Tool
+                · どうぐ{slot.tools.length}枚
               {/if}
             </span>
           </div>
-          <button type="button" class="focus-close" onclick={close} aria-label="Close Pokemon actions">
-            Close
+          <button type="button" class="focus-close" onclick={close} aria-label="ポケモンの操作を閉じる">
+            閉じる
           </button>
         </div>
 
@@ -234,15 +241,17 @@
           <div class="action-stack">
             {#if pokemon.powers?.length}
               <div class="action-group">
-                <span>Abilities</span>
-                {#each pokemon.powers as power}
+                <span>特性</span>
+                {#each pokemon.powers as power, powerIndex}
                   {@const action = abilityAction(power.name)}
+                  {@const powerName = jaMoves.abilities[powerIndex]?.name || power.name}
+                  {@const powerText = jaMoves.abilities[powerIndex]?.text || power.text}
                   <button
                     class="action-card ability-action"
                     class:used={action?.used}
                     class:unavailable={action?.legal === false}
                     disabled={actionsDisabled || action?.legal === false}
-                    title={actionTitle(power.text, power.name, action?.reason)}
+                    title={actionTitle(powerText, powerName, action?.reason)}
                     onclick={() => useAbility(power.name, slot.target)}
                   >
                     <span class="ability-name-line">
@@ -250,15 +259,15 @@
                         class="ability-badge"
                         class:used={action?.used}
                         src="/assets/ui/ability-badge.png"
-                        alt={action?.used ? 'Used ability' : 'Ability'}
+                        alt={action?.used ? '使用済みの特性' : '特性'}
                       />
-                      <strong>{power.name}</strong>
+                      <strong>{powerName}</strong>
                       {#if action?.used}
-                        <span class="action-kind">Used</span>
+                        <span class="action-kind">使用済み</span>
                       {/if}
                     </span>
-                    {#if power.text}
-                      <span class="action-text">{power.text}</span>
+                    {#if powerText}
+                      <span class="action-text">{powerText}</span>
                     {/if}
                   </button>
                 {/each}
@@ -267,15 +276,18 @@
 
             {#if isActive && pokemon.attacks?.length}
               <div class="action-group">
-                <span>Attacks</span>
-                {#each pokemon.attacks as item}
+                <span>ワザ</span>
+                {#each pokemon.attacks as item, attackIndex}
                   {@const cost = attackCost(item)}
                   {@const affordable = canPayAttack(item)}
+                  {@const attackName = jaMoves.attacks[attackIndex]?.name || item.name}
+                  {@const attackDamage = jaMoves.attacks[attackIndex]?.damage || item.damage}
+                  {@const attackText = jaMoves.attacks[attackIndex]?.text || item.text}
                   <button
                     class="action-card attack-action"
                     class:unavailable={!affordable}
                     disabled={actionsDisabled || !affordable}
-                    title={actionTitle(item.text, item.name)}
+                    title={actionTitle(attackText, attackName)}
                     onclick={() => attack(item.name)}
                   >
                     <span class="action-card-topline">
@@ -285,14 +297,14 @@
                             <img class:unpaid={!token.paid} src={token.icon} alt={token.label} title={token.label} />
                           {/each}
                         </span>
-                        <strong>{item.name}</strong>
+                        <strong>{attackName}</strong>
                       </span>
-                      {#if item.damage}
-                        <span class="attack-damage">{item.damage}</span>
+                      {#if attackDamage}
+                        <span class="attack-damage">{attackDamage}</span>
                       {/if}
                     </span>
-                    {#if item.text}
-                      <span class="action-text">{item.text}</span>
+                    {#if attackText}
+                      <span class="action-text">{attackText}</span>
                     {/if}
                   </button>
                 {/each}
@@ -314,7 +326,7 @@
                     <img class:unpaid={!token.paid} src={token.icon} alt={token.label} title={token.label} />
                   {/each}
                 </span>
-                <strong>Retreat</strong>
+                <strong>にげる</strong>
               </button>
             </div>
           {/if}

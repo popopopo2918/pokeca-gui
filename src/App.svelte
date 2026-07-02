@@ -2,6 +2,9 @@
   import { onMount } from 'svelte';
   import ActiveFocus from './lib/components/ActiveFocus.svelte';
   import AppHeader from './lib/components/AppHeader.svelte';
+  import DeckBuilderScreen from './lib/components/deckbuilder/DeckBuilderScreen.svelte';
+  import CardZoom from './lib/components/CardZoom.svelte';
+  import AgentManagerModal from './lib/components/AgentManagerModal.svelte';
   import BoardLayer from './lib/components/BoardLayer.svelte';
   import BoardPromptStrip from './lib/components/prompts/BoardPromptStrip.svelte';
   import EndGamePrompt from './lib/components/EndGamePrompt.svelte';
@@ -9,6 +12,9 @@
   import GameStatus from './lib/components/GameStatus.svelte';
   import Hand from './lib/components/Hand.svelte';
   import ImportScreen from './lib/components/ImportScreen.svelte';
+  import ActionSpotlight from './lib/components/ActionSpotlight.svelte';
+  import TurnBanner from './lib/components/TurnBanner.svelte';
+  import DrawFlyIn from './lib/components/DrawFlyIn.svelte';
   import LogPanel from './lib/components/LogPanel.svelte';
   import PlayerPanel from './lib/components/PlayerPanel.svelte';
   import PromptGallery from './lib/components/prompt-gallery/PromptGallery.svelte';
@@ -38,6 +44,8 @@
   import {
     autoResolvablePromptResult,
     extractPromptCards,
+    firstLegalCabtSelection,
+    legalizeCabtSelection,
     promptBlockedIndexes,
     promptInstanceKey,
     promptOptions,
@@ -48,7 +56,18 @@
   import { createChoosePokemonStrategy } from './lib/game/strategies/choosePokemonStrategy';
   import { createDamageTransferStrategy } from './lib/game/strategies/damageTransferStrategy';
   import { createPutDamageStrategy } from './lib/game/strategies/putDamageStrategy';
-  import { loadAgentOptions, loadGameLogs, type AgentOption, type GameLogEntry } from './lib/home/catalog';
+  import {
+    loadAgentOptions,
+    loadGameLogs,
+    loadProfiles,
+    createProfile,
+    loadAllWorkspaceAgents,
+    importSampleAgents,
+    uploadWorkspaceAgent,
+    deleteWorkspaceAgent,
+    type AgentOption,
+    type GameLogEntry,
+  } from './lib/home/catalog';
   import {
     SlotType,
     targetFor,
@@ -61,6 +80,7 @@
   } from './lib/game/types';
   import { deckImportStore } from './state/deckImport.svelte';
   import { gameStore } from './state/game.svelte';
+  import { boardGlowStore } from './state/boardGlow.svelte';
   import { gameSessionStore } from './state/gameSession.svelte';
   import { promptLifecycleStore } from './state/promptLifecycle.svelte';
   import { damageTransferStore } from './state/damageTransfer.svelte';
@@ -85,9 +105,52 @@
 
   let showPromptGallery = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'prompt-gallery';
   const initialReplayMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'replay';
+  const initialDeckBuilder = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'cards';
   let homeMode = $state<HomeMode>(initialReplayMode ? 'logs' : 'play');
+  let deckBuilderOpen = $state(initialDeckBuilder);
+
+  function applyBuiltDeck(playerIndex: 0 | 1, deckText: string) {
+    if (playerIndex === 0) {
+      deckImportStore.deck1Text = deckText;
+      player1DeckSource = 'import';
+      lastLoadedPlayer1DeckSource = '';
+    } else {
+      deckImportStore.deck2Text = deckText;
+      player2DeckSource = 'import';
+      lastLoadedPlayer2DeckSource = '';
+    }
+    homeMode = 'play';
+    deckBuilderOpen = false;
+  }
+
+  // Keyboard shortcuts during a live match: z = step back one move, x = step forward.
+  function handleGlobalKeydown(event: KeyboardEvent) {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+    if (deckBuilderOpen || showPromptGallery || replayMode || !gameStore.game) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    const tag = target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) {
+      return;
+    }
+    const key = event.key.toLowerCase();
+    if (key === 'z') {
+      gameStore.stepBack();
+      event.preventDefault();
+    } else if (key === 'x') {
+      gameStore.stepForward();
+      event.preventDefault();
+    }
+  }
   let agents = $state<AgentOption[]>([]);
   let gameLogs = $state<GameLogEntry[]>([]);
+  let profiles = $state<string[]>(['default']);
+  let activeProfile = $state(
+    typeof localStorage !== 'undefined' ? localStorage.getItem('cabt:activeProfile') || 'default' : 'default',
+  );
   let player1Control = $state<PlayerControl>('self');
   let player2Control = $state<PlayerControl>('agent');
   let player1AgentId = $state('');
@@ -102,10 +165,11 @@
   let catalogBusy = $state(false);
   let catalogError = $state('');
   let savingReplay = $state(false);
+  let exportingLog = $state(false);
   let saveReplayMessage = $state('');
   let saveReplayError = $state('');
   let replayMode = $derived(homeMode === 'logs' && !!replayStore.replay);
-  let game = $derived(replayMode ? replayStore.currentView : gameStore.game);
+  let game = $derived(replayMode ? replayStore.currentView : gameStore.displayView);
   let error = $derived(homeMode === 'logs' ? replayStore.error : gameStore.error);
   let busy = $derived(replayMode ? replayStore.loading : gameStore.busy);
   let sessionBusy = $derived(replayMode ? replayStore.loading : busy);
@@ -136,12 +200,78 @@
   let selectedPlayer2Deck = $derived(agents.find((agent) => agent.id === player2DeckSource && agent.deckUrl));
   onMount(() => {
     const stopThemeSync = viewSettingsStore.startThemeSync();
-    void refreshCatalog();
+    void initWorkspace();
     if (initialReplayMode) {
       void replayStore.loadSaved();
     }
     return stopThemeSync;
   });
+
+  async function initWorkspace() {
+    await loadProfileList();
+    await refreshCatalog();
+  }
+
+  async function loadProfileList() {
+    profiles = await loadProfiles();
+    if (!profiles.includes(activeProfile)) {
+      activeProfile = profiles[0] ?? 'default';
+      persistActiveProfile();
+    }
+  }
+
+  function persistActiveProfile() {
+    try {
+      localStorage.setItem('cabt:activeProfile', activeProfile);
+    } catch {
+      // localStorage unavailable; keep in-memory only.
+    }
+  }
+
+  async function selectProfile(name: string) {
+    if (name === activeProfile) return;
+    activeProfile = name;
+    persistActiveProfile();
+    await refreshCatalog();
+  }
+
+  async function createNewProfile(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    profiles = await createProfile(trimmed);
+    activeProfile = profiles.find((profile) => profile.toLowerCase() === trimmed.toLowerCase()) ?? trimmed;
+    persistActiveProfile();
+    await refreshCatalog();
+  }
+
+  async function importSamplesToProfile() {
+    catalogBusy = true;
+    catalogError = '';
+    try {
+      await importSampleAgents(activeProfile);
+      await refreshCatalog();
+    } catch (error) {
+      catalogError = error instanceof Error ? error.message : String(error);
+    } finally {
+      catalogBusy = false;
+    }
+  }
+
+  let agentManagerOpen = $state(false);
+  let profileWorkspaceAgents = $derived(agents.filter((agent) => agent.id.startsWith(`ws:${activeProfile}:`)));
+
+  async function uploadAgentToProfile(name: string, mainPy: string, deckCsv: string) {
+    const result = await uploadWorkspaceAgent(activeProfile, name, mainPy, deckCsv);
+    if (result.ok) {
+      await refreshCatalog();
+    }
+    return result;
+  }
+
+  async function deleteAgentFromProfile(name: string) {
+    await deleteWorkspaceAgent(activeProfile, name);
+    await refreshCatalog();
+  }
   $effect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.themePreference = themePreference;
@@ -339,11 +469,11 @@
   );
   let gameResultLabel = $derived(
     game?.winner === 3
-      ? 'Draw'
+      ? '引き分け'
       : winnerName
-        ? `${winnerName} wins`
+        ? `${winnerName} の勝ち`
         : gameFinished
-          ? 'Game finished'
+          ? '対戦終了'
           : '',
   );
   let currentPromptDockMode = $derived<'default' | 'search' | 'attachEnergy'>(
@@ -419,6 +549,30 @@
     }
   });
 
+  // Glow the Pokémon on the board when its Ability is used, so it is obvious which card acted.
+  // The engine bridge injects a synthetic 'ability' log (with the source Pokémon) whenever an
+  // ability option is chosen, so this is a reliable signal for both players.
+  let abilityUseEvent = $derived.by(() => {
+    const timeline = game?.actionTimeline;
+    if (!timeline) return undefined;
+    for (let index = timeline.length - 1; index >= 0; index -= 1) {
+      const event = timeline[index];
+      if (event.kind === 'ability' && event.playerIndex !== undefined) {
+        return event;
+      }
+    }
+    return undefined;
+  });
+  let lastAbilityGlowId = $state(-1);
+  $effect(() => {
+    const event = abilityUseEvent;
+    if (event && event.id !== lastAbilityGlowId && event.playerIndex !== undefined) {
+      lastAbilityGlowId = event.id;
+      const cardId = Number((event.params as { cardId?: unknown }).cardId);
+      boardGlowStore.glow(event.playerIndex, cardId, Math.max(viewSettingsStore.actionStepDelayMs, 1400));
+    }
+  });
+
   async function startGame() {
     if (!(await ensureSelectedDecksLoaded())) {
       return;
@@ -432,6 +586,7 @@
     selectionStore.setSelectedHand(null);
     resetSaveReplayStatus();
     replayStore.clear();
+    gameStore.reset();
     homeMode = 'play';
     activePlayerControls = [player1Control, player2Control];
     await gameSessionStore.run(() =>
@@ -448,7 +603,12 @@
     catalogBusy = true;
     catalogError = '';
     try {
-      const [nextAgents, nextLogs] = await Promise.all([loadAgentOptions(), loadGameLogs()]);
+      const [officialAgents, nextLogs, profileAgents] = await Promise.all([
+        loadAgentOptions(),
+        loadGameLogs(),
+        loadAllWorkspaceAgents(),
+      ]);
+      const nextAgents = [...officialAgents, ...profileAgents];
       agents = nextAgents;
       gameLogs = nextLogs;
       if (!player1AgentId || !nextAgents.some((agent) => agent.id === player1AgentId)) {
@@ -551,9 +711,9 @@
     try {
       const response = await localGameApi.saveReplay();
       if (!response.ok) {
-        throw new Error(response.error ?? 'Unable to save match.');
+        throw new Error(response.error ?? '対戦を保存できませんでした。');
       }
-      saveReplayMessage = response.file ? `Saved to Game Logs as ${response.file}.` : 'Saved to Game Logs.';
+      saveReplayMessage = response.file ? `対戦ログに保存しました（${response.file}）。` : '対戦ログに保存しました。';
       await refreshCatalog();
     } catch (error) {
       saveReplayError = error instanceof Error ? error.message : String(error);
@@ -561,6 +721,41 @@
       savingReplay = false;
     }
   }
+
+  async function exportLog() {
+    if (exportingLog || replayMode) {
+      return;
+    }
+    exportingLog = true;
+    saveReplayError = '';
+    try {
+      const response = await localGameApi.saveReplay();
+      if (!response.ok || !response.file) {
+        throw new Error(response.error ?? '対戦ログを書き出せませんでした。');
+      }
+      saveReplayMessage = `対戦ログに保存しました（${response.file}）。`;
+      await refreshCatalog();
+      const fileResponse = await fetch(`/game-logs/${response.file}`);
+      const blob = await fileResponse.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = response.file;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      saveReplayError = error instanceof Error ? error.message : String(error);
+    } finally {
+      exportingLog = false;
+    }
+  }
+
+  // Auto-save the match log once when a live game finishes (uses the live game, not the reviewed frame).
+  $effect(() => {
+    if (!replayMode && gameStore.gameFinished && !savingReplay && !saveReplayMessage && !saveReplayError) {
+      void saveReplay();
+    }
+  });
 
   async function playToTarget(target: CardTarget) {
     if (!selectedHand || !game || !canAct(selectedHand.playerIndex)) {
@@ -670,11 +865,25 @@
 
   async function resolvePrompt(value: unknown) {
     if (!currentPrompt) return;
+    if (gameStore.reviewing) return;
     if (currentPrompt.fields.playbackOnly === true) {
       gameStore.confirmPlaybackPrompt();
       return;
     }
-    await gameSessionStore.resolve(() => commandApi.resolvePrompt(currentPrompt.id, value));
+    // The native CABT engine rejects (HTTP 400 → frozen board) any selection whose length is
+    // outside [minCount, maxCount] or holds out-of-range / duplicate indexes. Coerce every
+    // selection to an engine-legal one before sending so the game can never get stuck.
+    const legalized = legalizeCabtSelection(value, currentPrompt);
+    const payload = legalized ?? value;
+    await gameSessionStore.resolve(() => commandApi.resolvePrompt(currentPrompt.id, payload));
+  }
+
+  // Safety net: resolve any prompt with the first legal selection so a card effect can never
+  // leave the game stuck, even if its dedicated UI does not render for some board state.
+  // Mirrors the CABT reference agent (`list(range(select.maxCount))`).
+  function advanceCurrentPrompt() {
+    if (!currentPrompt) return;
+    void resolvePrompt(firstLegalCabtSelection(currentPrompt));
   }
 
   function selectHandCard(playerIndex: number, handIndex: number) {
@@ -757,6 +966,8 @@
     resetSaveReplayStatus();
     zoneViewerStore.close();
     viewSettingsStore.resetView();
+    boardGlowStore.reset();
+    lastAbilityGlowId = -1;
     activePlayerControls = [player1Control, player2Control];
   }
 
@@ -866,7 +1077,7 @@
   }
 
   function canAct(playerIndex: number) {
-    if (replayMode) {
+    if (replayMode || gameStore.reviewing) {
       return false;
     }
     if (!isSelfControlled(playerIndex)) {
@@ -885,7 +1096,7 @@
   }
 
   function controlLabel(control: PlayerControl) {
-    return control === 'agent' ? 'Agent' : 'Self';
+    return control === 'agent' ? 'AI' : '自分';
   }
 
   function isAttachEnergyAvailable(index: number) {
@@ -1080,6 +1291,20 @@
 
 </script>
 
+<svelte:window onkeydown={handleGlobalKeydown} />
+<CardZoom />
+{#if agentManagerOpen}
+  <AgentManagerModal
+    profile={activeProfile}
+    agents={profileWorkspaceAgents}
+    onupload={uploadAgentToProfile}
+    ondelete={deleteAgentFromProfile}
+    onclose={() => (agentManagerOpen = false)}
+  />
+{/if}
+{#if deckBuilderOpen}
+  <DeckBuilderScreen onApply={applyBuiltDeck} onclose={() => (deckBuilderOpen = false)} />
+{/if}
 {#if showPromptGallery}
   <PromptGallery />
 {:else}
@@ -1088,12 +1313,20 @@
     <AppHeader />
     <section class="replay-loading-screen">
       <div class="replay-loading-panel">
-        <strong>{replayStore.loading ? 'Loading replay' : 'Replay unavailable'}</strong>
-        <span>{replayStore.loading ? 'Preparing CABT replay frames.' : labelFor(error || 'Unable to load replay.')}</span>
+        <strong>{replayStore.loading ? 'リプレイを読み込み中' : 'リプレイを表示できません'}</strong>
+        <span>{replayStore.loading ? 'CABTのリプレイを準備しています。' : labelFor(error || 'リプレイを読み込めませんでした。')}</span>
       </div>
     </section>
   {:else if !game}
-    <AppHeader />
+    <AppHeader
+      onOpenDeckBuilder={() => (deckBuilderOpen = true)}
+      {profiles}
+      {activeProfile}
+      onSelectProfile={(name) => void selectProfile(name)}
+      onCreateProfile={(name) => void createNewProfile(name)}
+      onImportSamples={() => void importSamplesToProfile()}
+      onManageAgents={() => (agentManagerOpen = true)}
+    />
 
       <ImportScreen
         {homeMode}
@@ -1139,6 +1372,16 @@
         {gameFinished}
       />
 
+      {#if !replayMode && !gameFinished}
+        <TurnBanner
+          turn={game.turn}
+          activePlayerName={activePlayer?.name}
+          activePlayerIndex={game.activePlayerIndex}
+          selfIndex={bottomPlayer?.index}
+          holdMs={Math.max(viewSettingsStore.actionStepDelayMs, 1400)}
+        />
+      {/if}
+
       <Toolbar
         bind:boardTilt={viewSettingsStore.boardTilt}
         bind:boardPerspective={viewSettingsStore.boardPerspective}
@@ -1149,6 +1392,7 @@
         bind:debugZones={viewSettingsStore.debugZones}
         bind:showLogs={viewSettingsStore.showLogs}
         bind:animateActions={viewSettingsStore.animateActions}
+        bind:showActionSpotlight={viewSettingsStore.showActionSpotlight}
         bind:actionStepDelayMs={viewSettingsStore.actionStepDelayMs}
         bind:themePreference={viewSettingsStore.themePreference}
         busy={sessionBusy}
@@ -1161,7 +1405,15 @@
         {switchSides}
         switchDisabled={!replayMode && actingPlayerIsSelf}
         {resetGame}
-        resetLabel={replayMode ? 'Exit replay' : 'Change decks'}
+        resetLabel={replayMode ? 'リプレイ終了' : 'デッキを変更'}
+        reviewing={!replayMode && gameStore.reviewing}
+        reviewLabel={gameStore.reviewLabel}
+        canStepBack={!replayMode && gameStore.canStepBack}
+        stepBack={() => gameStore.stepBack()}
+        stepForward={() => gameStore.stepForward()}
+        returnToLive={() => gameStore.returnToLive()}
+        exportLog={() => void exportLog()}
+        exporting={exportingLog}
       />
 
       {#if replayMode && replayStore.replay && replayStore.currentStep}
@@ -1221,6 +1473,45 @@
             />
           {/key}
         </PromptDock>
+      {/if}
+
+      {#if currentPrompt && !autoResolvePrompt && actingPlayerIsSelf && currentPrompt.fields.playbackOnly !== true && !setupPrompt}
+        <button
+          class="prompt-safety-advance"
+          style="position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:20; padding:7px 14px; border-radius:999px; border:1px solid var(--button-border); background:var(--surface-glass-bg); color:var(--text-secondary); font-size:12px; font-weight:600; cursor:pointer; box-shadow:var(--surface-toolbar-shadow); backdrop-filter:blur(var(--backdrop-blur));"
+          onclick={advanceCurrentPrompt}
+          disabled={resolvingPrompt}
+          title="UIで対象が選べないとき、この選択を最初の有効手で進めます"
+        >
+          選べない時はここから進める →
+        </button>
+      {/if}
+
+      {#if error && !gameFinished}
+        <div
+          class="engine-error-toast"
+          role="alert"
+          style="position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:40; display:flex; align-items:center; gap:12px; max-width:min(92vw,560px); padding:10px 14px; border-radius:12px; border:1px solid var(--danger-border); background:var(--danger-bg); color:var(--danger-strong); font-size:13px; font-weight:700; box-shadow:var(--surface-toolbar-shadow); backdrop-filter:blur(var(--backdrop-blur));"
+        >
+          <span style="min-width:0; overflow-wrap:anywhere;">{labelFor(error)}</span>
+          <button
+            type="button"
+            onclick={() => gameStore.setError('')}
+            aria-label="エラーを閉じる"
+            style="flex:0 0 auto; border:0; background:transparent; color:inherit; font-size:15px; line-height:1; cursor:pointer; padding:2px 4px;"
+          >✕</button>
+        </div>
+      {/if}
+
+      {#if !replayMode && viewSettingsStore.showActionSpotlight}
+        <ActionSpotlight
+          timeline={game.actionTimeline}
+          holdMs={Math.max(viewSettingsStore.actionStepDelayMs, 1400)}
+        />
+      {/if}
+
+      {#if !replayMode}
+        <DrawFlyIn timeline={game.actionTimeline} selfIndex={bottomPlayer?.index} />
       {/if}
 
       <BoardLayer>
@@ -1314,9 +1605,9 @@
           title={zoneViewerTitle}
           cards={viewedCards}
           faceDown={zoneViewerFaceDown}
-          actionLabel={zoneViewerIsStadium && viewedCards.length ? 'Use stadium' : ''}
-          actionDisabled={sessionBusy || !!currentPrompt || gameFinished || replayMode}
-          actionTitle="Use this stadium's once-per-turn effect"
+          actionLabel={zoneViewerIsStadium && viewedCards.length ? 'スタジアムを使う' : ''}
+          actionDisabled={sessionBusy || !!currentPrompt || gameFinished || replayMode || gameStore.reviewing}
+          actionTitle='このスタジアムの「1ターンに1回」効果を使う'
           onAction={useStadium}
           close={() => zoneViewerStore.close()}
         />
@@ -1326,9 +1617,9 @@
     <AppHeader />
     <section class="replay-loading-screen">
       <div class="replay-loading-panel">
-        <strong>Unable to start game</strong>
-        <span>{labelFor(error || game.logs.at(-1)?.message || 'The engine returned an invalid pre-game state.')}</span>
-        <button type="button" onclick={resetGame}>Change decks</button>
+        <strong>ゲームを開始できません</strong>
+        <span>{labelFor(error || game.logs.at(-1)?.message || 'エンジンが不正な開始前の状態を返しました。')}</span>
+        <button type="button" onclick={resetGame}>デッキを変更</button>
       </div>
     </section>
   {/if}

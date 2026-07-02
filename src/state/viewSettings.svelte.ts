@@ -13,18 +13,21 @@ function isResolvedTheme(theme: string | null): theme is ResolvedTheme {
   return theme === 'light' || theme === 'dark';
 }
 
+// Dark ("Obsidian Arena") is the default look; users can still pick light/system.
+const DEFAULT_THEME_PREFERENCE: ThemePreference = 'dark';
+
 function normalizeThemePreference(theme: string | null): ThemePreference {
-  return theme === 'system' || isResolvedTheme(theme) ? theme : 'system';
+  return theme === 'system' || isResolvedTheme(theme) ? theme : DEFAULT_THEME_PREFERENCE;
 }
 
 function readStoredThemePreference(): ThemePreference {
   if (typeof window === 'undefined') {
-    return 'system';
+    return DEFAULT_THEME_PREFERENCE;
   }
   try {
     return normalizeThemePreference(window.localStorage.getItem(THEME_STORAGE_KEY));
   } catch {
-    return 'system';
+    return DEFAULT_THEME_PREFERENCE;
   }
 }
 
@@ -40,7 +43,10 @@ class ViewSettingsStore {
   autoConfirmPrompts = $state(true);
   debugZones = $state(false);
   showLogs = $state(false);
-  animateActions = $state(false);
+  // 既定でオン: 相手(AI)の手を1手ずつ再生して見せる。
+  animateActions = $state(true);
+  // アクションのスポットライト表示（発動カードのポップ）。オフで非表示にできる。
+  showActionSpotlight = $state(true);
   actionStepDelayMs = $state(650);
   viewIndex = $state(0);
   boardTilt = $state(DEFAULT_BOARD_TILT);

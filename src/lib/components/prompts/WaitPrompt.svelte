@@ -14,12 +14,12 @@
 </script>
 
 <PromptPanel
-  title={promptTitle(prompt, 'Waiting for opponent')}
-  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'This prompt needs the advanced resolver.') : undefined}
+  title={promptTitle(prompt, '相手の番を待っています')}
+  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'このプロンプトは高度なリゾルバが必要です。') : undefined}
 >
   {#snippet icon()}<PromptIcon name="hourglass" />{/snippet}
 
   {#snippet actions()}
-    <button disabled={resolving} onclick={() => onresolve(null)}>Continue</button>
+    <button disabled={resolving} onclick={() => onresolve(null)}>続ける</button>
   {/snippet}
 </PromptPanel>

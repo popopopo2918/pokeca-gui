@@ -40,8 +40,8 @@
 </script>
 
 <PromptPanel
-  title={promptTitle(prompt, 'Choose attack')}
-  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'This prompt needs the advanced resolver.') : undefined}
+  title={promptTitle(prompt, 'ワザを選ぶ')}
+  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'このプロンプトは高度なリゾルバが必要です。') : undefined}
 >
   {#snippet icon()}<PromptIcon name="attack" />{/snippet}
 
@@ -61,7 +61,7 @@
 
   {#snippet actions()}
     {#if options.allowCancel}
-      <button disabled={resolving} onclick={() => onresolve(null)}>Cancel</button>
+      <button disabled={resolving} onclick={() => onresolve(null)}>キャンセル</button>
     {/if}
   {/snippet}
 </PromptPanel>

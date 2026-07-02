@@ -63,7 +63,7 @@
 <PromptPanel
   title={promptTitle(prompt)}
   variant="search"
-  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'This prompt needs the advanced resolver.') : undefined}
+  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'このプロンプトは高度なリゾルバが必要です。') : undefined}
 >
   {#snippet icon()}<PromptIcon name="shuffle" />{/snippet}
 
@@ -89,10 +89,10 @@
 
   {#snippet actions()}
     {#if options.allowCancel}
-      <button disabled={resolving} onclick={() => onresolve(null)}>Cancel</button>
+      <button disabled={resolving} onclick={() => onresolve(null)}>キャンセル</button>
     {/if}
-    <button disabled={resolving} onclick={clearOrder}>Clear order</button>
-    <button disabled={resolving} onclick={resetOrder}>Reset</button>
-    <button class="primary" disabled={resolving || !hasCompleteOrder} onclick={useListedOrder}>Continue</button>
+    <button disabled={resolving} onclick={clearOrder}>並び順をクリア</button>
+    <button disabled={resolving} onclick={resetOrder}>リセット</button>
+    <button class="primary" disabled={resolving || !hasCompleteOrder} onclick={useListedOrder}>続ける</button>
   {/snippet}
 </PromptPanel>

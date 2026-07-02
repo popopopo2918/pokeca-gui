@@ -26,6 +26,23 @@ export type SaveReplayResponse = {
 
 let currentSessionId = '';
 
+function getClientId(): string {
+  try {
+    let id = localStorage.getItem('cabt:clientId');
+    if (!id) {
+      id = `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem('cabt:clientId', id);
+    }
+    return id;
+  } catch {
+    return 'default';
+  }
+}
+
+function jsonHeaders(): Record<string, string> {
+  return { 'Content-Type': 'application/json', 'x-cabt-client': getClientId() };
+}
+
 async function send(command: Command): Promise<EngineResponse> {
   const commandWithSession = command.type === 'startGame' || !currentSessionId
     ? command
@@ -38,15 +55,15 @@ async function send(command: Command): Promise<EngineResponse> {
       };
   const response = await fetch('/local-engine', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: jsonHeaders(),
     body: JSON.stringify(commandWithSession),
   });
   const body = await response.json() as EngineResponse;
   if (body.ok && body.sessionId) {
     currentSessionId = body.sessionId;
-  } else if (!body.ok && body.error.includes('session')) {
+  } else if (!body.ok && (body.error.includes('session') || body.error.includes('セッション'))) {
+    // Drop the stale session id so the next command can start a fresh game. The engine reports
+    // session problems in Japanese ("セッション"); the English check stays for older responses.
     currentSessionId = '';
   }
   return body;
@@ -118,9 +135,7 @@ export const localGameApi: GameCommandApi & {
   async saveReplay() {
     const response = await fetch('/local-engine/save-replay', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: jsonHeaders(),
       body: '{}',
     });
     return await response.json() as SaveReplayResponse;

@@ -1,5 +1,6 @@
 import cardRows from './cardData.generated.json';
 import attackRows from './attackData.generated.json';
+import { japaneseAttackName, japaneseCardName } from './logFormat';
 import { resolveCardImageUrl } from '../game/cardImages';
 import { SlotType, targetFor, type CardView, type GameView, type LogView, type PlayerView, type PokemonSlotView } from '../game/types';
 import type { ReplaySnapshot, ReplayStep } from '../game/replay';
@@ -186,12 +187,12 @@ function frameToGameView(frame: CabtVisualizeFrame, playerNamesForReplay: string
   const current = frame.current;
   const activePlayerIndex = clampPlayerIndex(current.yourIndex);
   const players = current.players.map((player, index) =>
-    buildPlayerView(player, index, activePlayerIndex, playerNamesForReplay[index] ?? `Player ${index + 1}`, current.stadium ?? []),
+    buildPlayerView(player, index, activePlayerIndex, playerNamesForReplay[index] ?? `プレイヤー${index + 1}`, current.stadium ?? []),
   );
   return {
     ready: true,
     phase: current.result >= 0 ? 7 : 2,
-    phaseLabel: current.result >= 0 ? 'Finished' : 'CABT replay',
+    phaseLabel: current.result >= 0 ? '対戦終了' : 'リプレイ',
     turn: current.turn,
     activePlayerIndex,
     activePlayerId: players[activePlayerIndex]?.id,
@@ -305,14 +306,14 @@ function cardToView(cardRef: CabtCardRef): CardView {
 
 function faceDownCard(): CardView {
   return {
-    name: 'Card',
-    fullName: 'Card',
+    name: 'カード',
+    fullName: 'カード',
   };
 }
 
 function playerNames(input: unknown): string[] {
   const names = (input as KaggleContext)?.environment?.info?.TeamNames;
-  return names?.length ? names : ['Player 1', 'Player 2'];
+  return names?.length ? names : ['プレイヤー1', 'プレイヤー2'];
 }
 
 function stepLabel(frame: CabtVisualizeFrame, index: number): string {
@@ -335,38 +336,38 @@ function stepLabel(frame: CabtVisualizeFrame, index: number): string {
   if (selectType || context) {
     return [selectType, context].filter(Boolean).join(' · ');
   }
-  return index === 0 ? 'Initial state' : `Frame ${index}`;
+  return index === 0 ? '初期状態' : `フレーム${index}`;
 }
 
 function formatLog(log: Record<string, unknown>): string {
   const playerIndex = typeof log.playerIndex === 'number' ? log.playerIndex : undefined;
-  const actor = playerIndex === undefined ? 'Game' : `Player ${playerIndex + 1}`;
+  const actor = playerIndex === undefined ? 'ゲーム' : `プレイヤー${playerIndex + 1}`;
   const card = cardName(Number(log.cardId));
   switch (log.type) {
     case 'TurnStart':
-      return `${actor} turn started.`;
+      return `${actor}の番が始まった。`;
     case 'TurnEnd':
-      return `${actor} ended their turn.`;
+      return `${actor}は番を終えた。`;
     case 'Draw':
-      return `${actor} drew ${card}.`;
+      return `${actor}は「${card}」を引いた。`;
     case 'Play':
-      return `${actor} played ${card}.`;
+      return `${actor}は「${card}」を使った。`;
     case 'Attach':
-      return `${actor} attached ${card}.`;
+      return `${actor}は「${card}」をつけた。`;
     case 'Attack':
-      return `${actor} used ${attackNameForLog(log)} with ${card}.`;
+      return `${actor}は「${card}」で「${attackNameForLog(log)}」を使った。`;
     case 'MoveCard':
       if (Number(log.fromArea) === 6 && Number(log.toArea) === 2) {
-        return `${actor} took ${card} as a Prize card.`;
+        return `${actor}はサイドから「${card}」を取った。`;
       }
-      return `${actor} moved ${card} from ${areaName(log.fromArea)} to ${areaName(log.toArea)}.`;
+      return `${actor}は「${card}」を${areaName(log.fromArea)}から${areaName(log.toArea)}へ移動した。`;
     case 'HpChange':
     case 'HPChange':
-      return `${actor}'s ${card} HP changed.`;
+      return `${actor}の「${card}」のHPが変化した。`;
     case 'Result':
-      return 'The battle finished.';
+      return '対戦が終了した。';
     default:
-      return `${actor}: ${String(log.type ?? 'Event')}${Number.isFinite(Number(log.cardId)) ? ` ${card}` : ''}.`;
+      return `${actor}：${String(log.type ?? 'イベント')}${Number.isFinite(Number(log.cardId)) ? `「${card}」` : ''}。`;
   }
 }
 
@@ -379,11 +380,11 @@ function prizeMoveSummary(logs: Array<Record<string, unknown>>): string {
   const playerIndex = typeof prizeMoves[0].playerIndex === 'number' ? prizeMoves[0].playerIndex : undefined;
   const samePlayer = prizeMoves.every((log) => log.playerIndex === playerIndex);
   if (!samePlayer || playerIndex === undefined) {
-    return `Players took ${prizeMoves.length} Prize cards.`;
+    return `両プレイヤーがサイドを合計${prizeMoves.length}枚取った。`;
   }
 
-  const actor = `Player ${playerIndex + 1}`;
-  return prizeMoves.length === 1 ? `${actor} took 1 Prize card.` : `${actor} took ${prizeMoves.length} Prize cards.`;
+  const actor = `プレイヤー${playerIndex + 1}`;
+  return `${actor}はサイドを${prizeMoves.length}枚取った。`;
 }
 
 function attackLogSummary(logs: Array<Record<string, unknown>>): string {
@@ -393,32 +394,28 @@ function attackLogSummary(logs: Array<Record<string, unknown>>): string {
 
 function areaName(area: unknown): string {
   const areaMap: Record<number, string> = {
-    1: 'deck',
-    2: 'hand',
-    3: 'discard',
-    4: 'active',
-    5: 'bench',
-    6: 'prize',
-    7: 'stadium',
-    8: 'energy',
-    9: 'tool',
-    10: 'evolution stack',
-    11: 'player',
-    12: 'selection',
+    1: '山札',
+    2: '手札',
+    3: 'トラッシュ',
+    4: 'バトル場',
+    5: 'ベンチ',
+    6: 'サイド',
+    7: 'スタジアム',
+    8: 'エネルギー',
+    9: 'ポケモンのどうぐ',
+    10: '進化元',
+    11: 'プレイヤー',
+    12: '選択中のカード',
   };
-  return areaMap[Number(area)] ?? 'zone';
+  return areaMap[Number(area)] ?? '領域';
 }
 
 function cardName(id: number): string {
-  return displayName(cardDatabase.get(id)?.name ?? (Number.isFinite(id) ? `Card ${id}` : 'a card'));
+  return japaneseCardName(id);
 }
 
 function attackNameForLog(log: Record<string, unknown>): string {
-  const attack = attackDatabase.get(Number(log.attackId));
-  if (attack?.name) {
-    return displayName(attack.name);
-  }
-  return Number.isFinite(Number(log.attackId)) ? `attack ${log.attackId}` : 'an attack';
+  return japaneseAttackName(Number(log.attackId));
 }
 
 function attacksForCard(data: CardRow | undefined): CardView['attacks'] {

@@ -178,7 +178,7 @@ describe('cabtObservationToGameView', () => {
     const view = cabtObservationToGameView(observation, [], dataMaps);
     const prompt = view.prompts[0];
 
-    expect(prompt?.message).toBe('Choose energy to discard');
+    expect(prompt?.message).toBe('トラッシュするエネルギーを選ぶ');
     expect(prompt?.fields.cardList).toEqual([
       expect.objectContaining({ name: 'Basic {G} Energy', energyType: 1 }),
     ]);
@@ -432,8 +432,8 @@ describe('cabtObservationToGameView', () => {
     const view = cabtObservationToGameView(observation, [], { cardData: {}, attacks: {} });
     const prompt = view.prompts[0];
 
-    expect(prompt?.message).toBe('Choose cards to draw');
-    expect(prompt?.fields.values).toEqual(['Draw 1', 'Draw 2']);
+    expect(prompt?.message).toBe('引くカードの枚数を選ぶ');
+    expect(prompt?.fields.values).toEqual(['1枚', '2枚']);
   });
 
   it('routes CABT prize selections through the prize prompt with option indexes', () => {
@@ -491,7 +491,7 @@ describe('cabtObservationToGameView', () => {
     const prompt = view.prompts[0];
 
     expect(prompt?.className).toBe('ChoosePrizePrompt');
-    expect(prompt?.message).toBe('Choose Prize Card');
+    expect(prompt?.message).toBe('サイドを選ぶ');
     expect(prompt?.fields.prizes).toEqual([
       {
         index: 0,
@@ -548,7 +548,7 @@ describe('cabtObservationToGameView', () => {
     const prompt = view.prompts[0];
 
     expect(prompt?.className).toBe('ChoosePrizePrompt');
-    expect(prompt?.message).toBe('Choose Prize Card');
+    expect(prompt?.message).toBe('サイドを選ぶ');
     expect(prompt?.fields.prizes).toEqual([
       { index: 0, cards: [] },
       { index: 1, cards: [] },

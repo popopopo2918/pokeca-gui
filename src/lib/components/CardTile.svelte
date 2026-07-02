@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CardView } from '../game/types';
+  import { cardPreviewStore } from '../../state/cardPreview.svelte';
 
   type Props = {
     card?: CardView;
@@ -59,6 +60,13 @@
   function preventSelection(event: Event) {
     event.preventDefault();
   }
+
+  function previewEnter() {
+    if (card && !faceDown) cardPreviewStore.set(card);
+  }
+  function previewLeave() {
+    cardPreviewStore.clear(card);
+  }
 </script>
 
 {#if interactive}
@@ -76,6 +84,8 @@
     {ondragstart}
     {ondragend}
     onselectstart={preventSelection}
+    onmouseenter={previewEnter}
+    onmouseleave={previewLeave}
   >
     {#if showImage}
       <img src={imageUrl} alt="" loading="lazy" decoding="async" draggable="false" onerror={() => (failedImageUrl = imageUrl ?? '')} />
@@ -99,6 +109,9 @@
     class={`card-tile ${typeClass}`}
     data-testid={testId || undefined}
     title={card?.fullName ?? label}
+    onmouseenter={previewEnter}
+    onmouseleave={previewLeave}
+    role="presentation"
   >
     {#if showImage}
       <img src={imageUrl} alt="" loading="lazy" decoding="async" draggable="false" onerror={() => (failedImageUrl = imageUrl ?? '')} />

@@ -14,13 +14,13 @@
 </script>
 
 <PromptPanel
-  title={promptTitle(prompt, 'Confirm')}
-  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'This prompt needs the advanced resolver.') : undefined}
+  title={promptTitle(prompt, '確認')}
+  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'このプロンプトは高度なリゾルバが必要です。') : undefined}
 >
   {#snippet icon()}<PromptIcon name="check" />{/snippet}
 
   {#snippet actions()}
-    <button disabled={resolving} onclick={() => onresolve(false)}>No</button>
-    <button class="primary" disabled={resolving} onclick={() => onresolve(true)}>Yes</button>
+    <button disabled={resolving} onclick={() => onresolve(false)}>いいえ</button>
+    <button class="primary" disabled={resolving} onclick={() => onresolve(true)}>はい</button>
   {/snippet}
 </PromptPanel>

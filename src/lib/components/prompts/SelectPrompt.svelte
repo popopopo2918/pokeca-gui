@@ -64,17 +64,30 @@
     const value = Number(raw);
     return Number.isFinite(value) ? value : fallback;
   }
+
+  // CabtSelectContext.IS_FIRST = 41 (turn-order choice).
+  let minSelections = $derived(normalizeSelectionLimit(options.min, 0));
+  let isTurnOrderChoice = $derived((prompt.fields?.cabtSelect as { context?: number } | undefined)?.context === 41);
+
+  function pickRandom() {
+    if (values.length) {
+      onresolve(Math.floor(Math.random() * values.length));
+    }
+  }
+  function advanceFirstLegal() {
+    onresolve(minSelections > 0 ? Array.from({ length: minSelections }, (_unused, index) => index) : []);
+  }
 </script>
 
 <PromptPanel
-  title={isMulliganDrawPrompt ? 'Draw extra cards?' : promptTitle(prompt, 'Choose')}
-  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'This prompt needs the advanced resolver.') : undefined}
+  title={isMulliganDrawPrompt ? 'カードを追加で引きますか？' : promptTitle(prompt, '選ぶ')}
+  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'このプロンプトは高度なリゾルバが必要です。') : undefined}
 >
   {#if isMulliganDrawPrompt}
     <div class="mulligan-slider">
       <div class="mulligan-slider-meta">
-        <span>Mulligan</span>
-        <strong>Draw {mulliganDrawAmount} card{Number(mulliganDrawAmount) === 1 ? '' : 's'}</strong>
+        <span>マリガン</span>
+        <strong>{mulliganDrawAmount}枚引く</strong>
       </div>
       <input
         type="range"
@@ -82,7 +95,7 @@
         max={maxMulliganDraw}
         step="1"
         bind:value={mulliganDrawAmount}
-        aria-label={`Draw ${mulliganDrawAmount} cards`}
+        aria-label={`カードを${mulliganDrawAmount}枚引く`}
       />
       <div class="mulligan-slider-scale" aria-hidden="true">
         <span>{minMulliganDraw}</span>
@@ -95,14 +108,23 @@
         <button disabled={resolving} onclick={() => onresolve(index)}>{labelFor(value)}</button>
       {/each}
     </div>
+  {:else}
+    <p class="prompt-empty">この選択に対象がありません。「進める」で続行してください。</p>
   {/if}
 
   {#snippet actions()}
     {#if options.allowCancel}
-      <button disabled={resolving} onclick={() => onresolve(null)}>Cancel</button>
+      <button disabled={resolving} onclick={() => onresolve(null)}>キャンセル</button>
+    {/if}
+    {#if isTurnOrderChoice && values.length}
+      <button disabled={resolving} onclick={pickRandom}>ランダム</button>
     {/if}
     {#if isMulliganDrawPrompt}
-      <button class="primary" disabled={resolving} onclick={submitMulliganDraw}>Confirm</button>
+      <button class="primary" disabled={resolving} onclick={submitMulliganDraw}>確定</button>
+    {:else if minSelections === 0}
+      <button disabled={resolving} onclick={() => onresolve([])}>スキップ</button>
+    {:else if !values.length}
+      <button class="primary" disabled={resolving} onclick={advanceFirstLegal}>進める</button>
     {/if}
   {/snippet}
 </PromptPanel>

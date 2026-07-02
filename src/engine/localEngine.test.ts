@@ -19,7 +19,7 @@ describe('LocalEngineController', () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.view.players).toHaveLength(2);
-    expect(res.view.phaseLabel).toBe('Player turn');
+    expect(res.view.phaseLabel).toBe('プレイヤーの番');
     expect(res.view.players[0]?.active.pokemon?.name).toBe('Charmander');
     expect(res.view.players[0]?.availableActions?.active?.attacks[0]?.name).toBe('Ember');
   });
@@ -203,17 +203,17 @@ describe('LocalEngineController', () => {
     expect(response.ok).toBe(true);
     if (!response.ok) return;
     expect(response.view.actionTimeline).toEqual([
-      expect.objectContaining({ id: 1, message: 'Player 2 turn started.' }),
-      expect.objectContaining({ id: 2, message: 'Player 2 ended their turn.' }),
+      expect.objectContaining({ id: 1, message: 'プレイヤー2の番が始まった。' }),
+      expect.objectContaining({ id: 2, message: 'プレイヤー2は番を終えた。' }),
     ]);
     expect(response.sequence).toEqual([
       expect.objectContaining({
-        actionTimeline: [expect.objectContaining({ message: 'Player 2 turn started.' })],
+        actionTimeline: [expect.objectContaining({ message: 'プレイヤー2の番が始まった。' })],
       }),
       expect.objectContaining({
         actionTimeline: [
-          expect.objectContaining({ message: 'Player 2 turn started.' }),
-          expect.objectContaining({ message: 'Player 2 ended their turn.' }),
+          expect.objectContaining({ message: 'プレイヤー2の番が始まった。' }),
+          expect.objectContaining({ message: 'プレイヤー2は番を終えた。' }),
         ],
       }),
     ]);
@@ -251,7 +251,7 @@ describe('LocalEngineController', () => {
     expect(revealView?.prompts[0]).toEqual(expect.objectContaining({
       className: 'ConfirmCardsPrompt',
       type: 'playback-reveal',
-      message: 'Revealed and discarded cards',
+      message: '公開して捨てたカード',
     }));
     expect(revealView?.prompts[0]?.fields.cards).toEqual([
       expect.objectContaining({ name: 'Basic {W} Energy' }),

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   autoResolvablePromptResult,
+  cabtSelectFromPrompt,
   extractPromptCards,
   fieldOptions,
+  firstLegalCabtSelection,
   isForcedAutoResolvePrompt,
   isKnownPrompt,
+  legalizeCabtSelection,
   promptBlockedIndexes,
   promptBlockedTargets,
   promptInstanceKey,
@@ -148,6 +151,76 @@ describe('prompt helpers', () => {
 
     expect(result).toEqual([0, 1, 2]);
     expect(shouldAutoResolvePrompt(shuffle, false, result, false)).toBe(true);
+  });
+});
+
+describe('CABT selection legalization', () => {
+  function cabtPrompt(
+    select: { minCount: number; maxCount: number; optionCount: number },
+    options?: { min?: number; max?: number },
+  ): PromptView {
+    return prompt('ChooseCardsPrompt', {
+      cabtSelect: {
+        minCount: select.minCount,
+        maxCount: select.maxCount,
+        option: Array.from({ length: select.optionCount }, (_unused, index) => ({ index })),
+      },
+      options: options ?? { min: select.minCount, max: select.maxCount },
+    });
+  }
+
+  it('leaves an already-legal selection untouched', () => {
+    const item = cabtPrompt({ minCount: 1, maxCount: 2, optionCount: 5 });
+    expect(legalizeCabtSelection([3], item)).toEqual([3]);
+    expect(legalizeCabtSelection([0, 4], item)).toEqual([0, 4]);
+  });
+
+  it('pads an empty selection up to minCount (mirrors the reference agent)', () => {
+    const item = cabtPrompt({ minCount: 1, maxCount: 1, optionCount: 5 });
+    expect(legalizeCabtSelection([], item)).toEqual([0]);
+    expect(legalizeCabtSelection(null, item)).toEqual([0]);
+    expect(legalizeCabtSelection(true, item)).toEqual([0]);
+  });
+
+  it('keeps an empty selection when the prompt is optional (minCount 0)', () => {
+    const item = cabtPrompt({ minCount: 0, maxCount: 1, optionCount: 3 });
+    expect(legalizeCabtSelection([], item)).toEqual([]);
+  });
+
+  it('trims an over-long selection down to maxCount', () => {
+    const item = cabtPrompt({ minCount: 1, maxCount: 2, optionCount: 6 });
+    expect(legalizeCabtSelection([0, 1, 2, 3], item)).toEqual([0, 1]);
+  });
+
+  it('drops out-of-range and duplicate indexes', () => {
+    const item = cabtPrompt({ minCount: 1, maxCount: 3, optionCount: 3 });
+    expect(legalizeCabtSelection([5, 1, 1, -1, 2], item)).toEqual([1, 2]);
+  });
+
+  it('coerces a bare number into a single-index selection', () => {
+    const item = cabtPrompt({ minCount: 1, maxCount: 1, optionCount: 4 });
+    expect(legalizeCabtSelection(2, item)).toEqual([2]);
+  });
+
+  it('honors batched energy-discard limits carried on fields.options', () => {
+    // Batched discard: engine maxCount is 1 but the UI submits several indexes at once.
+    const item = cabtPrompt({ minCount: 1, maxCount: 1, optionCount: 5 }, { min: 1, max: 3 });
+    expect(legalizeCabtSelection([0, 1, 2], item)).toEqual([0, 1, 2]);
+  });
+
+  it('passes through non-CABT prompts and non-selection values', () => {
+    const nonCabt = prompt('ChoosePokemonPrompt', { options: { min: 1 } });
+    expect(cabtSelectFromPrompt(nonCabt)).toBeNull();
+    expect(legalizeCabtSelection([1], nonCabt)).toBeNull();
+
+    const cabt = cabtPrompt({ minCount: 1, maxCount: 1, optionCount: 3 });
+    expect(legalizeCabtSelection({ energyIndex: 1 }, cabt)).toBeNull();
+  });
+
+  it('produces the first maxCount indexes for the advance escape hatch', () => {
+    expect(firstLegalCabtSelection(cabtPrompt({ minCount: 0, maxCount: 2, optionCount: 5 }))).toEqual([0, 1]);
+    expect(firstLegalCabtSelection(cabtPrompt({ minCount: 1, maxCount: 1, optionCount: 5 }))).toEqual([0]);
+    expect(firstLegalCabtSelection(prompt('ConfirmPrompt'))).toEqual([]);
   });
 });
 

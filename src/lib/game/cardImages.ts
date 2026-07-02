@@ -6,12 +6,18 @@ export type SetImageInfo = {
 };
 
 export type CardImageInput = {
+  id?: number;
   imageUrl?: string;
   set?: string;
   setNumber?: string;
   name?: string;
   fullName?: string;
 };
+
+/** Official Japanese card art extracted locally from the competition's Card ID list. */
+export function japaneseCardImageUrl(id: number | undefined): string | undefined {
+  return typeof id === 'number' && id > 0 ? `/card-images-jp/${id}.webp` : undefined;
+}
 
 export const setImageMap: Record<string, string | SetImageInfo> = {
   BASE: 'base1',
@@ -54,6 +60,10 @@ export function resolveCardImageUrl(card: CardImageInput): string | undefined {
   }
   if (card.name === 'Unknown' || card.fullName === 'Unknown') {
     return undefined;
+  }
+  const japanese = japaneseCardImageUrl(card.id);
+  if (japanese) {
+    return japanese;
   }
   const setInfo = getSetImageInfo(card.set);
   if (!setInfo || !card.setNumber) {

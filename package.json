@@ -23,6 +23,7 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@huggingface/hub": "^1.1.2",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@types/node": "^24.12.4",
     "sirv-cli": "^3.0.1",

@@ -61,8 +61,8 @@
 </script>
 
 <PromptPanel
-  title={promptTitle(prompt, isDiscard ? 'Discard energy' : 'Move energy')}
-  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'This prompt needs the advanced resolver.') : undefined}
+  title={promptTitle(prompt, isDiscard ? 'エネルギーをトラッシュ' : 'エネルギーを移動')}
+  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'このプロンプトは高度なリゾルバが必要です。') : undefined}
 >
   {#snippet icon()}<PromptIcon name="energy" />{/snippet}
 
@@ -98,8 +98,8 @@
 
   {#snippet actions()}
     {#if options.allowCancel}
-      <button disabled={resolving} onclick={() => onresolve(null)}>Cancel</button>
+      <button disabled={resolving} onclick={() => onresolve(null)}>キャンセル</button>
     {/if}
-    <button class="primary" disabled={resolving || !canSubmit} onclick={submit}>Confirm</button>
+    <button class="primary" disabled={resolving || !canSubmit} onclick={submit}>確定</button>
   {/snippet}
 </PromptPanel>

@@ -17,7 +17,7 @@ export function parseLocalGameDecks(deck1Text: string, deck2Text: string): Local
   if (p1.errors.length || p2.errors.length) {
     return {
       ok: false,
-      error: [...p1.errors.map((error) => `Your deck: ${error}`), ...p2.errors.map((error) => `AI opponent deck: ${error}`)].join(
+      error: [...p1.errors.map((error) => `あなたのデッキ: ${error}`), ...p2.errors.map((error) => `AI対戦相手のデッキ: ${error}`)].join(
         '\n',
       ),
     };

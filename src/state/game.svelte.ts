@@ -7,6 +7,10 @@ class GameStore {
   busy = $state(false);
   resolvingPrompt = $state(false);
   playingSequence = $state(false);
+  /** Snapshots of every board state shown this match, for the in-match review rewind. */
+  history = $state<GameView[]>([]);
+  /** null = following the live game; otherwise an index into `history` being reviewed. */
+  reviewIndex = $state<number | null>(null);
   private playbackConfirmResolve: (() => void) | null = null;
   private generation = 0;
 
@@ -16,6 +20,56 @@ class GameStore {
 
   get gameFinished() {
     return this.game?.phase === 7;
+  }
+
+  get reviewing() {
+    return this.reviewIndex !== null;
+  }
+
+  /** The view to render: the reviewed historical frame while rewound, else the live game. */
+  get displayView() {
+    if (this.reviewIndex === null) {
+      return this.game;
+    }
+    return this.history[this.reviewIndex] ?? this.game;
+  }
+
+  get canStepBack() {
+    if (!this.history.length) return false;
+    return this.reviewIndex === null ? this.history.length > 1 : this.reviewIndex > 0;
+  }
+
+  get reviewLabel() {
+    if (this.reviewIndex === null) return '';
+    return `${this.reviewIndex + 1} / ${this.history.length}`;
+  }
+
+  stepBack() {
+    if (!this.history.length) return;
+    const current = this.reviewIndex ?? this.history.length - 1;
+    this.reviewIndex = Math.max(0, current - 1);
+  }
+
+  stepForward() {
+    if (this.reviewIndex === null) return;
+    if (this.reviewIndex >= this.history.length - 1) {
+      this.reviewIndex = null;
+      return;
+    }
+    this.reviewIndex += 1;
+  }
+
+  returnToLive() {
+    this.reviewIndex = null;
+  }
+
+  private recordHistory(sequence: GameView[] | undefined, view: GameView | null | undefined) {
+    const frames = sequence?.length ? sequence : view ? [view] : [];
+    if (!frames.length) return;
+    this.history = [...this.history, ...frames];
+    if (this.history.length > 600) {
+      this.history = this.history.slice(-600);
+    }
   }
 
   setError(message: string) {
@@ -29,6 +83,8 @@ class GameStore {
     this.busy = false;
     this.resolvingPrompt = false;
     this.playingSequence = false;
+    this.history = [];
+    this.reviewIndex = null;
     this.playbackConfirmResolve?.();
     this.playbackConfirmResolve = null;
   }
@@ -92,6 +148,7 @@ class GameStore {
       }
       this.game = response.view;
       this.error = '';
+      this.recordHistory(response.sequence, response.view);
       return response;
     }
 

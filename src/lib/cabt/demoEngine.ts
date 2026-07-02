@@ -423,7 +423,7 @@ export function cabtObservationToGameView(
     return {
       ready: false,
       phase: 0,
-      phaseLabel: 'Waiting',
+      phaseLabel: '待機中',
       turn: 0,
       activePlayerIndex: 0,
       players: [],
@@ -438,7 +438,7 @@ export function cabtObservationToGameView(
   return {
     ready: true,
     phase: current.result >= 0 ? 7 : 2,
-    phaseLabel: current.result >= 0 ? 'Finished' : 'Player turn',
+    phaseLabel: current.result >= 0 ? '対戦終了' : 'プレイヤーの番',
     turn: current.turn,
     activePlayerIndex,
     activePlayerId: players[activePlayerIndex]?.id,
@@ -576,7 +576,7 @@ function buildPrompts(observation: CabtObservation, activePlayerIndex: number, d
         playerId: activePlayerIndex,
         playerIndex: activePlayerIndex,
         supported: true,
-        message: 'Choose Prize Card',
+        message: 'サイドを選ぶ',
         resultSchema: 'optionIndexes',
         fields: {
           prizes: select.option.map((option, optionIndex) => {
@@ -748,32 +748,32 @@ function activeAttacks(active: CabtPokemon | null | undefined, dataMaps: CabtDat
 }
 
 function optionLabel(option: CabtOption, dataMaps: CabtDataMaps, observation: CabtObservation, context?: number) {
-  if (context === CabtSelectContext.IS_FIRST && option.type === CabtOptionType.YES) return 'Go first';
-  if (context === CabtSelectContext.IS_FIRST && option.type === CabtOptionType.NO) return 'Go second';
+  if (context === CabtSelectContext.IS_FIRST && option.type === CabtOptionType.YES) return '先攻';
+  if (context === CabtSelectContext.IS_FIRST && option.type === CabtOptionType.NO) return '後攻';
   if (option.type === CabtOptionType.NUMBER) return numberOptionLabel(option, context);
-  if (option.type === CabtOptionType.YES) return 'Yes';
-  if (option.type === CabtOptionType.NO) return 'No';
-  if (option.type === CabtOptionType.END) return 'End turn';
-  if (option.attackId) return dataMaps.attacks[option.attackId]?.name ?? `Attack ${option.attackId}`;
-  if (option.cardId) return dataMaps.cardData[option.cardId]?.name ?? `Card ${option.cardId}`;
+  if (option.type === CabtOptionType.YES) return 'はい';
+  if (option.type === CabtOptionType.NO) return 'いいえ';
+  if (option.type === CabtOptionType.END) return '番を終える';
+  if (option.attackId) return dataMaps.attacks[option.attackId]?.name ?? `ワザ${option.attackId}`;
+  if (option.cardId) return dataMaps.cardData[option.cardId]?.name ?? `カード${option.cardId}`;
   const optionCard = cardForOption(option, observation);
-  if (optionCard) return dataMaps.cardData[optionCard.id]?.name ?? `Card ${optionCard.id}`;
-  return `Option ${option.type}`;
+  if (optionCard) return dataMaps.cardData[optionCard.id]?.name ?? `カード${optionCard.id}`;
+  return typeof option.index === 'number' ? `対象 ${option.index + 1}` : '対象';
 }
 
 function numberOptionLabel(option: CabtOption, context?: number) {
   const value = option.number ?? option.count;
   if (value === undefined || value === null) {
-    return 'Number';
+    return '数';
   }
   if (context === CabtSelectContext.DRAW_COUNT) {
-    return `Draw ${value}`;
+    return `${value}枚`;
   }
   if (context === CabtSelectContext.DAMAGE_COUNTER_COUNT) {
-    return `${value} damage counter${value === 1 ? '' : 's'}`;
+    return `ダメカン${value}個`;
   }
   if (context === CabtSelectContext.REMOVE_DAMAGE_COUNTER_COUNT) {
-    return `Remove ${value}`;
+    return `${value}個取り除く`;
   }
   return String(value);
 }
@@ -842,32 +842,59 @@ function isPrizeSelectionPrompt(select: CabtSelectData) {
 
 function cabtSelectLabel(context: number) {
   const labels: Record<number, string> = {
-    [CabtSelectContext.SETUP_ACTIVE_POKEMON]: 'Choose Active Pokemon',
-    [CabtSelectContext.SETUP_BENCH_POKEMON]: 'Choose Bench Pokemon',
-    [CabtSelectContext.SWITCH]: 'Choose Switch Target',
-    [CabtSelectContext.TO_ACTIVE]: 'Choose Active Pokemon',
-    [CabtSelectContext.TO_BENCH]: 'Choose Bench Pokemon',
-    [CabtSelectContext.TO_HAND]: 'Choose Card',
-    [CabtSelectContext.DISCARD]: 'Choose Discard',
-    [CabtSelectContext.TO_PRIZE]: 'Choose Prize Card',
-    [CabtSelectContext.DISCARD_ENERGY_CARD]: 'Choose energy to discard',
-    [CabtSelectContext.DISCARD_ENERGY]: 'Choose energy to discard',
-    [CabtSelectContext.TO_HAND_ENERGY]: 'Choose energy for your hand',
-    [CabtSelectContext.TO_DECK_ENERGY]: 'Choose energy for deck',
-    [CabtSelectContext.SWITCH_ENERGY]: 'Choose energy to move',
-    [CabtSelectContext.ATTACH_FROM]: 'Choose Attachment Source',
-    [CabtSelectContext.ATTACH_TO]: 'Choose Attachment Target',
-    [CabtSelectContext.ATTACK]: 'Choose Attack',
-    [CabtSelectContext.DRAW_COUNT]: 'Choose cards to draw',
-    [CabtSelectContext.DAMAGE_COUNTER_COUNT]: 'Choose damage counter count',
-    [CabtSelectContext.REMOVE_DAMAGE_COUNTER_COUNT]: 'Choose damage counters to remove',
-    [CabtSelectContext.IS_FIRST]: 'Choose Turn Order',
-    [CabtSelectContext.MULLIGAN]: 'Mulligan',
-    [CabtSelectContext.ACTIVATE]: 'Resolve Effect',
+    [CabtSelectContext.SETUP_ACTIVE_POKEMON]: 'バトルポケモンを選ぶ',
+    [CabtSelectContext.SETUP_BENCH_POKEMON]: 'ベンチポケモンを選ぶ',
+    [CabtSelectContext.SWITCH]: '入れ替え先を選ぶ',
+    [CabtSelectContext.TO_ACTIVE]: 'バトルポケモンを選ぶ',
+    [CabtSelectContext.TO_BENCH]: 'ベンチポケモンを選ぶ',
+    [CabtSelectContext.TO_FIELD]: '出す場所を選ぶ',
+    [CabtSelectContext.TO_HAND]: 'カードを選ぶ',
+    [CabtSelectContext.DISCARD]: 'トラッシュするカードを選ぶ',
+    [CabtSelectContext.TO_DECK]: '山札に戻すカードを選ぶ',
+    [CabtSelectContext.TO_DECK_BOTTOM]: '山札の下に戻すカードを選ぶ',
+    [CabtSelectContext.TO_PRIZE]: 'サイドを選ぶ',
+    [CabtSelectContext.NOT_MOVE]: 'そのままにするカードを選ぶ',
+    [CabtSelectContext.DAMAGE_COUNTER]: 'ダメカンをのせるポケモンを選ぶ',
+    [CabtSelectContext.DAMAGE_COUNTER_ANY]: 'ダメカンをのせるポケモンを選ぶ',
+    [CabtSelectContext.DAMAGE]: 'ダメージを与えるポケモンを選ぶ',
+    [CabtSelectContext.REMOVE_DAMAGE_COUNTER]: 'ダメカンを取り除くポケモンを選ぶ',
+    [CabtSelectContext.HEAL]: '回復するポケモンを選ぶ',
+    [CabtSelectContext.EVOLVES_FROM]: '進化元のポケモンを選ぶ',
+    [CabtSelectContext.EVOLVES_TO]: '進化先を選ぶ',
+    [CabtSelectContext.DEVOLVE]: '退化させるポケモンを選ぶ',
+    [CabtSelectContext.DISCARD_ENERGY_CARD]: 'トラッシュするエネルギーを選ぶ',
+    [CabtSelectContext.DISCARD_TOOL_CARD]: 'トラッシュするどうぐを選ぶ',
+    [CabtSelectContext.SWITCH_ENERGY_CARD]: '入れ替えるエネルギーを選ぶ',
+    [CabtSelectContext.DISCARD_CARD_OR_ATTACHED_CARD]: 'トラッシュするカードを選ぶ',
+    [CabtSelectContext.DISCARD_ENERGY]: 'トラッシュするエネルギーを選ぶ',
+    [CabtSelectContext.TO_HAND_ENERGY]: '手札に加えるエネルギーを選ぶ',
+    [CabtSelectContext.TO_DECK_ENERGY]: '山札に戻すエネルギーを選ぶ',
+    [CabtSelectContext.SWITCH_ENERGY]: '移動するエネルギーを選ぶ',
+    [CabtSelectContext.ATTACH_FROM]: 'つけ替え元を選ぶ',
+    [CabtSelectContext.ATTACH_TO]: 'つける先を選ぶ',
+    [CabtSelectContext.DETACH_FROM]: '外すエネルギーを選ぶ',
+    [CabtSelectContext.LOOK]: '見るカードを選ぶ',
+    [CabtSelectContext.EFFECT_TARGET]: '効果の対象を選ぶ',
+    [CabtSelectContext.SKILL_ORDER]: '効果を使う順番を選ぶ',
+    [CabtSelectContext.ATTACK]: 'ワザを選ぶ',
+    [CabtSelectContext.DISABLE_ATTACK]: '使えなくするワザを選ぶ',
+    [CabtSelectContext.EVOLVE]: '進化させるポケモンを選ぶ',
+    [CabtSelectContext.DRAW_COUNT]: '引くカードの枚数を選ぶ',
+    [CabtSelectContext.DAMAGE_COUNTER_COUNT]: 'のせるダメカンの数を選ぶ',
+    [CabtSelectContext.REMOVE_DAMAGE_COUNTER_COUNT]: '取り除くダメカンを選ぶ',
+    [CabtSelectContext.IS_FIRST]: '先攻・後攻を選ぶ',
+    [CabtSelectContext.MULLIGAN]: 'マリガン',
+    [CabtSelectContext.ACTIVATE]: '効果を処理する',
+    [CabtSelectContext.FIRST_EFFECT]: '先に処理する効果を選ぶ',
+    [CabtSelectContext.MORE_DEVOLVE]: 'さらに退化させるポケモンを選ぶ',
+    [CabtSelectContext.COIN_HEAD]: 'コインの面を選ぶ',
+    [CabtSelectContext.AFFECT_SPECIAL_CONDITION]: '特殊状態にするポケモンを選ぶ',
+    [CabtSelectContext.RECOVER_SPECIAL_CONDITION]: '特殊状態を回復するポケモンを選ぶ',
   };
   if (labels[context]) return labels[context];
-  if (context === CabtSelectContext.ACTIVATE) return 'CABT_SELECT';
-  return `CABT_CONTEXT_${context}`;
+  // どのコンテキストにも該当しない場合でも、生のコード（例: CABT_CONTEXT_6）ではなく
+  // 日本語の総称を返してUIに英語コードが出ないようにする。
+  return '操作を選んでください';
 }
 
 function retreatCost(pokemonCard: CabtPokemon | null | undefined, dataMaps: CabtDataMaps = DEMO_CABT_DATA) {
@@ -898,5 +925,5 @@ function card(id: number, playerIndex: number): CabtCard {
 }
 
 function playerName(index: number) {
-  return index === 0 ? 'Player 1' : 'Player 2';
+  return index === 0 ? 'プレイヤー1' : 'プレイヤー2';
 }

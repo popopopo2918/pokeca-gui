@@ -88,7 +88,7 @@
   title={labelFor(prompt.className)}
   subtitle={`${attachAssignments.length}/${maxSelections} assigned`}
   variant="compact"
-  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'This prompt needs the advanced resolver.') : undefined}
+  warning={!prompt.supported ? (prompt.unsupportedReason ?? 'このプロンプトは高度なリゾルバが必要です。') : undefined}
 >
   {#snippet icon()}<PromptIcon name="energy" />{/snippet}
 
@@ -115,9 +115,9 @@
   </div>
 
   {#snippet actions()}
-    <button disabled={resolving || attachAssignments.length === 0} onclick={resetAttachAssignments}>Reset</button>
+    <button disabled={resolving || attachAssignments.length === 0} onclick={resetAttachAssignments}>リセット</button>
     {#if options.allowCancel}
-      <button disabled={resolving} onclick={() => onresolve(null)}>Cancel</button>
+      <button disabled={resolving} onclick={() => onresolve(null)}>キャンセル</button>
     {/if}
     <button class="primary" disabled={resolving || attachAssignments.length < minSelections} onclick={submitAttachEnergy}>
       Confirm

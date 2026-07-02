@@ -8,6 +8,8 @@ export default defineConfig({
   plugins: [svelte()],
   server: {
     port: 5173,
+    // Accept the public hostname assigned by the cloudflared tunnel.
+    allowedHosts: true,
     proxy: {
       '/local-engine': {
         target: 'http://localhost:8095',

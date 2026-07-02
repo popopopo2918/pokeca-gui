@@ -25,17 +25,17 @@
 <div class="end-game-overlay" role="dialog" aria-modal="true" aria-labelledby="end-game-title">
   <section class="end-game-panel">
     <div>
-      <span>Game over</span>
+      <span>対戦終了</span>
       <h2 id="end-game-title">{resultLabel}</h2>
-      <p>Finished on turn {turn}</p>
+      <p>{turn} ターンで終了</p>
     </div>
     <div class="actions">
       {#if onsave}
         <button class="secondary" type="button" onclick={onsave} disabled={saveDisabled || saving}>
-          {saving ? 'Saving...' : saveMessage ? 'Saved' : 'Save match'}
+          {saving ? '保存中…' : saveMessage ? '保存しました' : '対戦を保存'}
         </button>
       {/if}
-      <button type="button" onclick={onconfirm}>Back to main screen</button>
+      <button type="button" onclick={onconfirm}>メイン画面へ戻る</button>
     </div>
     {#if saveMessage}
       <p class="save-status" role="status">{saveMessage}</p>

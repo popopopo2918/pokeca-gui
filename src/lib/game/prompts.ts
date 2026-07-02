@@ -193,3 +193,103 @@ export function samePromptIndexes(left: number[], right: number[]) {
 export function prunePromptIndexes(indexes: number[], isSelectable: (index: number) => boolean, maxSelections: number) {
   return indexes.filter((index) => isSelectable(index)).slice(0, maxSelections);
 }
+
+/**
+ * The raw CABT selection descriptor carried on a prompt (min/max counts and the option list).
+ * The native CABT engine raises when a submitted selection's length falls outside
+ * [minCount, maxCount] or contains out-of-range / duplicate option indexes, which surfaces as an
+ * HTTP 400 and a frozen board. These helpers keep every synthesized selection engine-legal.
+ */
+type CabtSelectLike = {
+  minCount?: number;
+  maxCount?: number;
+  option?: unknown[];
+};
+
+export function cabtSelectFromPrompt(prompt: Pick<PromptView, 'fields'> | null | undefined): CabtSelectLike | null {
+  const raw = prompt?.fields?.cabtSelect;
+  return raw && typeof raw === 'object' ? (raw as CabtSelectLike) : null;
+}
+
+function firstFiniteInt(values: unknown[], fallback: number): number {
+  for (const value of values) {
+    const n = Number(value);
+    if (Number.isFinite(n)) {
+      return Math.trunc(n);
+    }
+  }
+  return fallback;
+}
+
+function clampInt(value: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, value));
+}
+
+function normalizeSelectionValue(value: unknown): number[] | null {
+  if (value === null || value === undefined || value === true) {
+    return [];
+  }
+  if (typeof value === 'number' && Number.isInteger(value)) {
+    return [value];
+  }
+  if (Array.isArray(value) && value.every((item) => typeof item === 'number' && Number.isInteger(item))) {
+    return value as number[];
+  }
+  return null;
+}
+
+function selectionLimits(prompt: Pick<PromptView, 'fields'> | null | undefined, select: CabtSelectLike) {
+  const optionCount = Array.isArray(select.option) ? select.option.length : 0;
+  const options = promptOptions(prompt);
+  const min = clampInt(firstFiniteInt([options.min, select.minCount], 0), 0, optionCount);
+  const max = clampInt(firstFiniteInt([options.max, select.maxCount], optionCount), min, optionCount);
+  return { optionCount, min, max };
+}
+
+/**
+ * Coerce an arbitrary prompt result into a selection the CABT engine will accept: distinct,
+ * in-range option indexes whose count sits within [min, max]. Over-long selections are trimmed
+ * and under-long ones are padded with the lowest unused indexes (mirroring the reference agent).
+ * Returns `null` when the prompt is not a CABT selection or the value is not selection-shaped, so
+ * the caller can forward the original value untouched.
+ */
+export function legalizeCabtSelection(value: unknown, prompt: Pick<PromptView, 'fields'> | null | undefined): number[] | null {
+  const select = cabtSelectFromPrompt(prompt);
+  if (!select) {
+    return null;
+  }
+  const normalized = normalizeSelectionValue(value);
+  if (normalized === null) {
+    return null;
+  }
+  const { optionCount, min, max } = selectionLimits(prompt, select);
+  const seen = new Set<number>();
+  const cleaned: number[] = [];
+  for (const index of normalized) {
+    if (index >= 0 && index < optionCount && !seen.has(index)) {
+      seen.add(index);
+      cleaned.push(index);
+    }
+  }
+  const result = cleaned.slice(0, max);
+  for (let index = 0; result.length < min && index < optionCount; index += 1) {
+    if (!seen.has(index)) {
+      seen.add(index);
+      result.push(index);
+    }
+  }
+  return result;
+}
+
+/**
+ * The always-legal "advance" move: the first `maxCount` option indexes, matching the CABT
+ * reference agent (`list(range(select.maxCount))`). Used by the "選べない時はここから進める" escape hatch.
+ */
+export function firstLegalCabtSelection(prompt: Pick<PromptView, 'fields'> | null | undefined): number[] {
+  const select = cabtSelectFromPrompt(prompt);
+  if (!select) {
+    return [];
+  }
+  const { max } = selectionLimits(prompt, select);
+  return Array.from({ length: max }, (_unused, index) => index);
+}

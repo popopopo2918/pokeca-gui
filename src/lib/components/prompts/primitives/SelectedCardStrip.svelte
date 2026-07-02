@@ -30,7 +30,7 @@
 </script>
 
 {#if slots.length || selectedCards.length}
-  <section class="selected-card-strip" aria-label="Selected cards in order">
+  <section class="selected-card-strip" aria-label="選んだカード（順番）">
     <div class="selected-card-rail">
       {#each slots.length ? slots : selectedCards as slotOrItem, order}
         {@const item = slots.length ? selectedCards[order] : slotOrItem}

@@ -17,9 +17,9 @@
 </script>
 
 <details class="board-perspective-controls">
-  <summary aria-label="Board perspective settings" title="Board perspective settings">⚙</summary>
+  <summary aria-label="盤面の視点設定" title="盤面の見え方の設定">⚙</summary>
   <div class="board-perspective-menu">
-    <strong>Board perspective</strong>
+    <strong>盤面の見え方</strong>
     <label>
       Tilt
       <input type="range" min="0" max="18" step="1" bind:value={boardTilt} />
@@ -40,7 +40,7 @@
       <input type="range" min="-48" max="48" step="2" bind:value={boardLift} />
       <span>{boardLift}px</span>
     </label>
-    <button type="button" onclick={() => resetPerspective()}>Reset</button>
+    <button type="button" onclick={() => resetPerspective()}>リセット</button>
   </div>
 </details>
 
