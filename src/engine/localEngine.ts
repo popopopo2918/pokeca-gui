@@ -147,6 +147,11 @@ export class LocalEngineController {
       if (command.type !== 'startGame') {
         this.assertSession(command.payload);
       }
+      // Any action other than the retreat flow itself means the retreat is over;
+      // its auto-target must never survive into an unrelated selection.
+      if (command.type !== 'retreat' && command.type !== 'resolvePrompt' && command.type !== 'state') {
+        this.pendingRetreatTarget = null;
+      }
       switch (command.type) {
         case 'startGame':
           return await this.start(command.payload);
@@ -489,16 +494,34 @@ export class LocalEngineController {
     return null;
   }
 
+  /** Complete a retreat by auto-picking the bench target the player already chose in
+   * the UI. The pending target lives ONLY through the retreat flow itself (energy
+   * payment → switch): at the switch step it is consumed no matter what, and any other
+   * selection context discards it. A stale target that survived used to hijack the
+   * next selection whose options happened to include a matching bench index (ボスの指令
+   * の入れ替え先など) — the prompt then resolved itself without the player choosing. */
   private async applyPendingRetreatTarget(): Promise<void> {
-    if (!this.pendingRetreatTarget || this.observation?.current?.yourIndex !== this.pendingRetreatTarget.playerIndex) {
+    const target = this.pendingRetreatTarget;
+    if (!target) {
       return;
     }
-    const targetIndex = this.findPendingRetreatTargetOption();
-    if (targetIndex < 0) {
+    const select = this.observation?.select;
+    const context = select?.context;
+    const isSwitchStep = context === CabtSelectContext.SWITCH || context === CabtSelectContext.TO_ACTIVE;
+    const isPaymentStep = context === CabtSelectContext.DISCARD_ENERGY || context === CabtSelectContext.DISCARD_ENERGY_CARD;
+    if (this.observation?.current?.yourIndex !== target.playerIndex || !select || (!isSwitchStep && !isPaymentStep)) {
+      this.pendingRetreatTarget = null;
       return;
+    }
+    if (!isSwitchStep) {
+      return; // energy payment step: keep waiting for the switch step
     }
 
+    const targetIndex = this.findPendingRetreatTargetOption();
     this.pendingRetreatTarget = null;
+    if (targetIndex < 0) {
+      return; // target not offered: leave the choice to the player
+    }
     const response = await this.bridge.request({
       command: 'select',
       selection: [targetIndex],
