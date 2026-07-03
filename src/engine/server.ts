@@ -287,6 +287,7 @@ const server = http.createServer(async (req, res) => {
     const raw = await readBody(req);
     const command = raw ? JSON.parse(raw) : { type: 'state' };
     const response = await controller.handle(command);
+    logCommand(clientIdOf(req), command, response);
     writeJson(res, response.ok ? 200 : 400, response);
   } catch (error) {
     writeJson(res, 400, {
@@ -295,6 +296,47 @@ const server = http.createServer(async (req, res) => {
     });
   }
 });
+
+// Diagnostic trail of every engine command, so "a card picked itself" reports can be
+// traced to the exact request that made the selection. One line per command.
+const COMMAND_LOG = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'logs', 'cabt-commands.log');
+const COMMAND_LOG_MAX_BYTES = 4 * 1024 * 1024;
+
+function logCommand(clientId: string, command: any, response: any): void {
+  if (command?.type === 'state') {
+    return; // polling noise
+  }
+  try {
+    const payload = command?.payload ?? {};
+    const parts = [
+      new Date().toISOString(),
+      `client=${String(clientId).slice(0, 12)}`,
+      `type=${command?.type}`,
+    ];
+    for (const key of ['id', 'result', 'handIndex', 'playerIndex', 'to', 'count'] as const) {
+      if (payload[key] !== undefined) {
+        parts.push(`${key}=${JSON.stringify(payload[key]).slice(0, 80)}`);
+      }
+    }
+    const prompt = response?.view?.prompts?.[0];
+    parts.push(`-> ok=${response?.ok}`);
+    parts.push(prompt ? `prompt=${prompt.className}#${prompt.id}(${JSON.stringify(prompt.message).slice(0, 40)})` : 'prompt=none');
+    if (!response?.ok && response?.error) {
+      parts.push(`error=${JSON.stringify(String(response.error).split('\n')[0]).slice(0, 120)}`);
+    }
+    fs.mkdirSync(path.dirname(COMMAND_LOG), { recursive: true });
+    try {
+      if (fs.statSync(COMMAND_LOG).size > COMMAND_LOG_MAX_BYTES) {
+        fs.renameSync(COMMAND_LOG, `${COMMAND_LOG}.old`);
+      }
+    } catch {
+      // first write
+    }
+    fs.appendFileSync(COMMAND_LOG, `${parts.join(' ')}\n`);
+  } catch {
+    // logging must never break the game
+  }
+}
 
 // Kill every engine bridge when the server stops, so no Python processes leak.
 function closeAllControllers(): void {
