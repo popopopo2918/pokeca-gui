@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getCatalog, type CatalogCard } from '../cards/cardCatalog';
+  import { resolveDeckTextEntries } from '../cards/cardCatalog';
 
   type Props = {
     title: string;
@@ -9,43 +9,7 @@
 
   let { title, deckText, onClose }: Props = $props();
 
-  type PreviewEntry = { count: number; card?: CatalogCard; label: string };
-
-  // Resolve pasted deck lines ("3 ヒカリ PFL 87") to catalog cards for image display.
-  // Set+collector number wins; otherwise fall back to the (Japanese or English) name.
-  function resolveEntries(text: string): PreviewEntry[] {
-    const catalog = getCatalog();
-    const bySetNumber = new Map<string, CatalogCard>();
-    for (const card of catalog) {
-      bySetNumber.set(`${card.set} ${card.setNumber}`.toLowerCase(), card);
-    }
-    const entries: PreviewEntry[] = [];
-    for (const rawLine of text.split(/\r?\n/)) {
-      const line = rawLine.replace(/\s+#.*$/, '').trim();
-      if (!line || /^[^\d:][^:]+:\s*\d+\s*$/.test(line)) {
-        continue; // empty or section header (ポケモン: 22 など)
-      }
-      const match = line.match(/^(\d+)\s+(.+)$/);
-      const count = match ? Number(match[1]) : 1;
-      const label = (match ? match[2] : line).trim();
-      const tokens = label.split(/\s+/);
-      const hasNumber = /^\d+[a-z]?$/i.test(tokens.at(-1) ?? '');
-      const setCode = hasNumber ? tokens.at(-2) : tokens.at(-1);
-      let card: CatalogCard | undefined;
-      if (hasNumber && setCode) {
-        card = bySetNumber.get(`${setCode} ${tokens.at(-1)}`.toLowerCase());
-      }
-      if (!card) {
-        const bareName = (hasNumber ? tokens.slice(0, -2) : tokens.slice(0, -1)).join(' ') || label;
-        card = catalog.find((item) => item.nameJa === bareName || item.name === bareName)
-          ?? catalog.find((item) => item.nameJa === label || item.name === label);
-      }
-      entries.push({ count: Number.isFinite(count) && count > 0 ? count : 1, card, label });
-    }
-    return entries;
-  }
-
-  let entries = $derived(resolveEntries(deckText));
+  let entries = $derived(resolveDeckTextEntries(deckText));
   let totalCount = $derived(entries.reduce((sum, entry) => sum + entry.count, 0));
 </script>
 

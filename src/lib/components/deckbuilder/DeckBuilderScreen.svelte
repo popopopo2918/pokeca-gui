@@ -4,7 +4,7 @@
   import DeckPanel from './DeckPanel.svelte';
   import DeckLibrary from './DeckLibrary.svelte';
   import CardDetailModal from './CardDetailModal.svelte';
-  import { getCatalog, type CatalogCard } from '../../cards/cardCatalog';
+  import { getCatalog, resolveDeckTextEntries, type CatalogCard } from '../../cards/cardCatalog';
   import { deckBuilderStore } from '../../../state/deckBuilder.svelte';
 
   type Props = {
@@ -49,6 +49,43 @@
     deckBuilderStore.saveActive();
     flash('デッキを保存しました');
   }
+
+  let deckCode = $state('');
+  let deckCodeBusy = $state(false);
+  let deckCodeWarnings = $state<string[]>([]);
+
+  // 公式サイトのデッキコードを読み込んで、このデッキ編成に展開する。
+  // プール外のカードは警告に出して除外（編集・保存してから対戦で使う想定）。
+  async function importDeckCode() {
+    const code = deckCode.trim();
+    if (!code || deckCodeBusy) return;
+    deckCodeBusy = true;
+    deckCodeWarnings = [];
+    try {
+      const response = await fetch(`/local-engine/deck-code/${encodeURIComponent(code)}`);
+      const body = await response.json() as { ok: boolean; text?: string; warnings?: string[]; error?: string };
+      if (!body.ok || !body.text) {
+        flash(body.error ?? 'デッキコードを読み込めませんでした');
+        return;
+      }
+      const counts: Record<number, number> = {};
+      for (const entry of resolveDeckTextEntries(body.text)) {
+        if (entry.card) {
+          counts[entry.card.id] = (counts[entry.card.id] ?? 0) + entry.count;
+        }
+      }
+      deckBuilderStore.loadCounts(counts);
+      deckBuilderStore.activeDeckId = null;
+      deckBuilderStore.activeDeckName = `コード ${code}`;
+      deckCodeWarnings = body.warnings ?? [];
+      tab = 'deck';
+      flash('デッキコードを読み込みました');
+    } catch (error) {
+      flash(`読み込みに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      deckCodeBusy = false;
+    }
+  }
 </script>
 
 <div class="screen">
@@ -58,7 +95,34 @@
       <h1>デッキ編成</h1>
       <span class="hint">{cards.length} 種のカードプール</span>
     </div>
+    <div class="code-import">
+      <input
+        type="text"
+        bind:value={deckCode}
+        placeholder="公式デッキコード（例: VfVb1k-DwijHb-dFF5fF）"
+        aria-label="公式デッキコード"
+        spellcheck="false"
+        onkeydown={(event) => event.key === 'Enter' && void importDeckCode()}
+      />
+      <button type="button" disabled={deckCodeBusy || !deckCode.trim()} onclick={() => void importDeckCode()}>
+        {deckCodeBusy ? '読込中…' : 'コード読み込み'}
+      </button>
+    </div>
   </header>
+
+  {#if deckCodeWarnings.length}
+    <div class="code-warnings">
+      <div class="code-warnings-head">
+        <strong>デッキコード読み込みの注意（{deckCodeWarnings.length}件）</strong>
+        <button type="button" onclick={() => (deckCodeWarnings = [])}>閉じる</button>
+      </div>
+      <ul>
+        {#each deckCodeWarnings as warning}
+          <li>{warning}</li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
 
   <div class="body">
     <section class="left">
@@ -141,12 +205,68 @@
   }
   .bar {
     flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
     padding: 14px 20px;
     border-bottom: 1px solid var(--surface-toolbar-border);
     background: var(--surface-toolbar-bg);
     backdrop-filter: blur(var(--backdrop-blur));
   }
   .title { display: flex; align-items: center; gap: 14px; }
+
+  .code-import {
+    display: grid;
+    grid-template-columns: minmax(220px, 340px) auto;
+    gap: 8px;
+  }
+
+  .code-import input {
+    min-height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--input-text);
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .code-import button {
+    border: 1px solid var(--button-border);
+    border-radius: 8px;
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 12px;
+  }
+
+  .code-warnings {
+    margin: 10px 20px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--warning-base, #b8860b);
+    border-radius: 8px;
+    background: var(--surface-inset-bg);
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+
+  .code-warnings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--text-primary);
+  }
+
+  .code-warnings ul {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    max-height: 120px;
+    overflow: auto;
+  }
   .back {
     padding: 7px 12px;
     border: 1px solid var(--button-border);

@@ -31,8 +31,6 @@
     startGame: () => void;
     loadGameLog: (log: GameLogEntry) => void;
     refreshCatalog: () => void;
-    loadDeckCode: (playerIndex: 0 | 1, code: string) => Promise<void>;
-    deckCodeBusy?: boolean;
   };
 
   let {
@@ -60,12 +58,7 @@
     startGame,
     loadGameLog,
     refreshCatalog,
-    loadDeckCode,
-    deckCodeBusy = false,
   }: Props = $props();
-
-  let deckCode1 = $state('');
-  let deckCode2 = $state('');
 
   let deckOptions = $derived(agents.filter((agent) => !!agent.deckUrl));
   let previewTarget = $state<0 | 1 | null>(null);
@@ -142,6 +135,7 @@
               aria-label="プレイヤー1のデッキ"
             >
               <option value="import">デッキを貼り付け</option>
+              <option value="preset:sample">フーディン（サンプルデッキ）</option>
               {#if savedDecks.length}
                 <optgroup label="保存したデッキ（デッキ編成）">
                   {#each savedDecks as deck}
@@ -154,20 +148,6 @@
               {/each}
             </select>
           </span>
-        </span>
-        <span class="deck-code-row">
-          <input
-            type="text"
-            bind:value={deckCode1}
-            placeholder="公式デッキコード（例: VfVb1k-DwijHb-dFF5fF）"
-            aria-label="プレイヤー1の公式デッキコード"
-            spellcheck="false"
-          />
-          <button
-            type="button"
-            disabled={deckCodeBusy || !deckCode1.trim()}
-            onclick={() => void loadDeckCode(0, deckCode1)}
-          >{deckCodeBusy ? '読込中…' : 'コード読み込み'}</button>
         </span>
         <textarea
           bind:value={deck1Text}
@@ -223,6 +203,7 @@
               aria-label="プレイヤー2のデッキ"
             >
               <option value="import">デッキを貼り付け</option>
+              <option value="preset:sample">フーディン（サンプルデッキ）</option>
               {#if savedDecks.length}
                 <optgroup label="保存したデッキ（デッキ編成）">
                   {#each savedDecks as deck}
@@ -235,20 +216,6 @@
               {/each}
             </select>
           </span>
-        </span>
-        <span class="deck-code-row">
-          <input
-            type="text"
-            bind:value={deckCode2}
-            placeholder="公式デッキコード（例: VfVb1k-DwijHb-dFF5fF）"
-            aria-label="プレイヤー2の公式デッキコード"
-            spellcheck="false"
-          />
-          <button
-            type="button"
-            disabled={deckCodeBusy || !deckCode2.trim()}
-            onclick={() => void loadDeckCode(1, deckCode2)}
-          >{deckCodeBusy ? '読込中…' : 'コード読み込み'}</button>
         </span>
         <textarea
           bind:value={deck2Text}
@@ -446,8 +413,16 @@
     padding: 0 12px;
   }
 
-  /* The OS-drawn dropdown list keeps the select's text color but not its background,
-     which turned into white-on-white. Pin both so options stay readable. */
+  /* The OS-drawn dropdown popup follows the element's color-scheme, not its CSS colors.
+     Without this, dark theme showed a white popup with near-white text. */
+  :global([data-theme='dark']) select {
+    color-scheme: dark;
+  }
+
+  :global([data-theme='light']) select {
+    color-scheme: light;
+  }
+
   select option,
   select optgroup {
     background: var(--input-bg);
@@ -464,31 +439,6 @@
     padding: 6px 10px;
   }
 
-  .deck-code-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
-  }
-
-  .deck-code-row input {
-    min-height: 36px;
-    border-radius: 8px;
-    border: 1px solid var(--input-border);
-    background: var(--input-bg);
-    color: var(--input-text);
-    padding: 0 12px;
-    font-size: 12px;
-  }
-
-  .deck-code-row button {
-    border: 1px solid var(--button-border);
-    border-radius: 8px;
-    background: var(--button-bg);
-    color: var(--button-text);
-    font-size: 12px;
-    font-weight: 700;
-    padding: 0 12px;
-  }
 
   .log-toolbar strong {
     font-size: 16px;

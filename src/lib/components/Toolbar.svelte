@@ -347,6 +347,15 @@
     color: var(--input-text);
   }
 
+  /* The OS dropdown popup follows the element's color-scheme (see ImportScreen). */
+  :global([data-theme='dark']) .table-toolbar select {
+    color-scheme: dark;
+  }
+
+  :global([data-theme='light']) .table-toolbar select {
+    color-scheme: light;
+  }
+
   .inline-error {
     padding: 6px 8px;
     max-width: 100%;

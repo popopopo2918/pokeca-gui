@@ -5,6 +5,7 @@
   import DeckBuilderScreen from './lib/components/deckbuilder/DeckBuilderScreen.svelte';
   import { deckBuilderStore } from './state/deckBuilder.svelte';
   import { deckCountsToText } from './lib/cards/cardCatalog';
+  import { SAMPLE_DECK } from './lib/game/deckImport';
   import CardZoom from './lib/components/CardZoom.svelte';
   import AgentManagerModal from './lib/components/AgentManagerModal.svelte';
   import BoardLayer from './lib/components/BoardLayer.svelte';
@@ -112,31 +113,6 @@
   const initialDeckBuilder = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'cards';
   let homeMode = $state<HomeMode>(initialReplayMode ? 'logs' : 'play');
   let deckBuilderOpen = $state(initialDeckBuilder);
-
-  let deckCodeBusy = $state(false);
-
-  // 公式サイトのデッキコードをサーバー経由で取得してデッキ欄に反映する。
-  async function loadDeckCode(playerIndex: 0 | 1, code: string) {
-    if (deckCodeBusy) return;
-    deckCodeBusy = true;
-    gameStore.setError('');
-    try {
-      const response = await fetch(`/local-engine/deck-code/${encodeURIComponent(code.trim())}`);
-      const body = await response.json() as { ok: boolean; text?: string; warnings?: string[]; error?: string };
-      if (!body.ok || !body.text) {
-        gameStore.setError(body.error ?? 'デッキコードを読み込めませんでした。');
-        return;
-      }
-      applyBuiltDeck(playerIndex, body.text);
-      if (body.warnings?.length) {
-        gameStore.setError(`デッキコードを読み込みました（注意あり）:\n${body.warnings.join('\n')}`);
-      }
-    } catch (error) {
-      gameStore.setError(`デッキコードの読み込みに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      deckCodeBusy = false;
-    }
-  }
 
   function applyBuiltDeck(playerIndex: 0 | 1, deckText: string) {
     if (playerIndex === 0) {
@@ -382,8 +358,8 @@
     }
   });
   $effect(() => {
-    if (player1DeckSource.startsWith('deck:')) {
-      return; // saved-deck sources are filled by the saved-deck effect below
+    if (player1DeckSource.startsWith('deck:') || player1DeckSource.startsWith('preset:')) {
+      return; // saved-deck/preset sources are filled by the saved-deck effect below
     }
     const deckUrl = selectedPlayer1Deck?.deckUrl ?? '';
     if (player1DeckSource === 'import' || !deckUrl) {
@@ -396,7 +372,7 @@
     void loadSelectedDeck(deckUrl, player1DeckSource, 0);
   });
   $effect(() => {
-    if (player2DeckSource.startsWith('deck:')) {
+    if (player2DeckSource.startsWith('deck:') || player2DeckSource.startsWith('preset:')) {
       return;
     }
     const deckUrl = selectedPlayer2Deck?.deckUrl ?? '';
@@ -418,20 +394,25 @@
   });
 
   function applySavedDeckSource(source: string, playerIndex: 0 | 1) {
-    if (!source.startsWith('deck:')) {
+    if (!source.startsWith('deck:') && source !== 'preset:sample') {
       return;
     }
     const lastLoaded = playerIndex === 0 ? lastLoadedPlayer1DeckSource : lastLoadedPlayer2DeckSource;
     if (lastLoaded === source) {
       return;
     }
-    const deck = deckBuilderStore.library.find((item) => `deck:${item.id}` === source);
-    if (!deck) {
-      if (playerIndex === 0) player1DeckSource = 'import';
-      else player2DeckSource = 'import';
-      return;
+    let text: string;
+    if (source === 'preset:sample') {
+      text = SAMPLE_DECK;
+    } else {
+      const deck = deckBuilderStore.library.find((item) => `deck:${item.id}` === source);
+      if (!deck) {
+        if (playerIndex === 0) player1DeckSource = 'import';
+        else player2DeckSource = 'import';
+        return;
+      }
+      text = deckCountsToText(deck.counts);
     }
-    const text = deckCountsToText(deck.counts);
     if (playerIndex === 0) {
       deckImportStore.deck1Text = text;
       lastLoadedPlayer1DeckSource = source;
@@ -775,11 +756,11 @@
       if (!player2AgentId || !nextAgents.some((agent) => agent.id === player2AgentId)) {
         player2AgentId = nextAgents[0]?.id ?? '';
       }
-      if (player1DeckSource !== 'import' && !player1DeckSource.startsWith('deck:')
+      if (player1DeckSource !== 'import' && !player1DeckSource.startsWith('deck:') && !player1DeckSource.startsWith('preset:')
         && !nextAgents.some((agent) => agent.id === player1DeckSource && agent.deckUrl)) {
         player1DeckSource = 'import';
       }
-      if (player2DeckSource !== 'import' && !player2DeckSource.startsWith('deck:')
+      if (player2DeckSource !== 'import' && !player2DeckSource.startsWith('deck:') && !player2DeckSource.startsWith('preset:')
         && !nextAgents.some((agent) => agent.id === player2DeckSource && agent.deckUrl)) {
         player2DeckSource = 'import';
       }
@@ -1618,8 +1599,6 @@
           }
         }}
         startGame={startGame}
-        {loadDeckCode}
-        {deckCodeBusy}
         {loadGameLog}
         refreshCatalog={() => void refreshCatalog()}
       />
