@@ -16,6 +16,7 @@
   import TurnBanner from './lib/components/TurnBanner.svelte';
   import DrawFlyIn from './lib/components/DrawFlyIn.svelte';
   import LogPanel from './lib/components/LogPanel.svelte';
+  import LogTicker from './lib/components/LogTicker.svelte';
   import PlayerPanel from './lib/components/PlayerPanel.svelte';
   import PromptGallery from './lib/components/prompt-gallery/PromptGallery.svelte';
   import PromptDock from './lib/components/prompts/PromptDock.svelte';
@@ -1577,6 +1578,7 @@
         bind:autoConfirmPrompts={viewSettingsStore.autoConfirmPrompts}
         bind:debugZones={viewSettingsStore.debugZones}
         bind:showLogs={viewSettingsStore.showLogs}
+        bind:showMiniLog={viewSettingsStore.showMiniLog}
         bind:animateActions={viewSettingsStore.animateActions}
         bind:showActionSpotlight={viewSettingsStore.showActionSpotlight}
         bind:revealHands={viewSettingsStore.revealHands}
@@ -1799,6 +1801,12 @@
 
         {#if showLogs}
           <LogPanel logs={game.logs} timeline={game.actionTimeline} />
+        {:else if viewSettingsStore.showMiniLog}
+          <LogTicker
+            logs={game.logs}
+            timeline={game.actionTimeline}
+            onHide={() => (viewSettingsStore.showMiniLog = false)}
+          />
         {/if}
 
         <ZoneViewer

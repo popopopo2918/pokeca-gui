@@ -12,6 +12,7 @@
     autoConfirmPrompts: boolean;
     debugZones: boolean;
     showLogs: boolean;
+    showMiniLog: boolean;
     animateActions: boolean;
     showActionSpotlight: boolean;
     revealHands: boolean;
@@ -49,6 +50,7 @@
     autoConfirmPrompts = $bindable(),
     debugZones = $bindable(),
     showLogs = $bindable(),
+    showMiniLog = $bindable(),
     animateActions = $bindable(),
     showActionSpotlight = $bindable(),
     revealHands = $bindable(),
@@ -134,6 +136,10 @@
       <label title="行動ログパネルの表示切替（L）">
         <input type="checkbox" bind:checked={showLogs} />
         ログを表示（L）
+      </label>
+      <label title="全ログを閉じている時、直近3件のログを右下に小さく表示">
+        <input type="checkbox" bind:checked={showMiniLog} />
+        ミニログ（最新3件）
       </label>
       <label>
         <input type="checkbox" bind:checked={animateActions} />

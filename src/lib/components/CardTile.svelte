@@ -61,11 +61,17 @@
     event.preventDefault();
   }
 
+  // Per-tile ownership token for the zoom preview. Also clears on unmount: a card
+  // that leaves the board mid-hover never fires mouseleave, which used to leave the
+  // zoom stuck on screen.
+  const previewOwner = {};
+  $effect(() => () => cardPreviewStore.clear(previewOwner));
+
   function previewEnter() {
-    if (card && !faceDown) cardPreviewStore.set(card);
+    if (card && !faceDown) cardPreviewStore.set(card, previewOwner);
   }
   function previewLeave() {
-    cardPreviewStore.clear(card);
+    cardPreviewStore.clear(previewOwner);
   }
 </script>
 

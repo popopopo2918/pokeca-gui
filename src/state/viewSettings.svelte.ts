@@ -19,6 +19,7 @@ type PersistedSettings = {
   showActionSpotlight?: boolean;
   revealHands?: boolean;
   sortHand?: boolean;
+  showMiniLog?: boolean;
   actionStepDelayMs?: number;
 };
 
@@ -87,6 +88,8 @@ class ViewSettingsStore {
   revealHands = $state(storedBoolean(storedSettings.revealHands, false));
   // 自分の手札の表示をポケモン→トレーナーズ→エネルギーの順に整列する（表示のみ）。
   sortHand = $state(storedBoolean(storedSettings.sortHand, false));
+  // 直近3件だけのミニログ（全ログパネルが閉じている時に表示）。
+  showMiniLog = $state(storedBoolean(storedSettings.showMiniLog, true));
   actionStepDelayMs = $state(storedDelay(storedSettings.actionStepDelayMs, 650));
   viewIndex = $state(0);
   boardTilt = $state(DEFAULT_BOARD_TILT);
@@ -162,6 +165,7 @@ class ViewSettingsStore {
       showActionSpotlight: this.showActionSpotlight,
       revealHands: this.revealHands,
       sortHand: this.sortHand,
+      showMiniLog: this.showMiniLog,
       actionStepDelayMs: this.actionStepDelayMs,
     };
     if (typeof window === 'undefined') {
