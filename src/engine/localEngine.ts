@@ -558,9 +558,11 @@ export class LocalEngineController {
         attacks: Object.fromEntries(response.attacks.map((attack) => [attack.attackId, attack])),
       };
     }
+    // Fresh spectator hands must be in place before the animation frames are built,
+    // so a card gained mid-response (e.g., a taken prize) shows face-up in them too.
+    this.trueHands = response.trueHands ?? null;
     this.pendingSequence = [...this.pendingSequence, ...this.appendTimeline(response)];
     this.recordReplayFrames(response);
-    this.trueHands = response.trueHands ?? null;
     this.observation = this.withKnownHands(response.observation ?? null);
     if (typeof response.undoCount === 'number') {
       this.undoCount = response.undoCount;

@@ -24,6 +24,8 @@ export type CardView = {
   id?: number;
   name: string;
   fullName: string;
+  /** For attached-card choices (改造ハンマー等): which Pokémon the card is attached to. */
+  ownerLabel?: string;
   set?: string;
   setNumber?: string;
   cardImage?: string;

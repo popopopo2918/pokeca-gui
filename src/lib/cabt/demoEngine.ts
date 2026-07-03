@@ -623,6 +623,7 @@ function buildPrompts(observation: CabtObservation, activePlayerIndex: number, d
             return {
               ...view,
               index: optionIndex,
+              ownerLabel: optionOwnerLabel(option, observation),
             };
           }),
           options: promptSelectionOptions(select),
@@ -849,6 +850,28 @@ function isPrizeSelectionPrompt(select: CabtSelectData) {
       && select.option.length > 0
       && select.option.every((option) => option.type === CabtOptionType.CARD && option.area === CabtAreaType.PRIZE)
     );
+}
+
+/** 改造ハンマー等の装着カード選択で「どのポケモンに付いているか」を示すラベル。 */
+function optionOwnerLabel(option: CabtOption, observation: CabtObservation): string | undefined {
+  const hasAttachedRef = (option.energyIndex !== undefined && option.energyIndex !== null)
+    || (option.toolIndex !== undefined && option.toolIndex !== null);
+  if (!hasAttachedRef) {
+    return undefined;
+  }
+  const current = observation.current;
+  if (!current || option.index === undefined || option.index === null) {
+    return undefined;
+  }
+  const playerIndex = option.playerIndex ?? current.yourIndex;
+  const player = current.players[playerIndex];
+  const holder = option.area === CabtAreaType.BENCH ? player?.bench[option.index] : player?.active[option.index];
+  if (!holder) {
+    return undefined;
+  }
+  const owner = playerIndex === current.yourIndex ? '自分' : '相手';
+  const place = option.area === CabtAreaType.BENCH ? 'ベンチ' : 'バトル場';
+  return `${owner}の${place}「${japaneseCardName(holder.id)}」`;
 }
 
 /** Human-facing message for a CABT select: name the concrete card/ability being decided

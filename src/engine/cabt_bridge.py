@@ -407,7 +407,7 @@ class Session:
     def undo_count(self) -> int:
         return sum(1 for entry in self.history if entry["human"] and entry["main"])
 
-    def true_hands(self) -> dict[str, list[dict[str, Any]]] | None:
+    def true_hands(self, force: bool = False) -> dict[str, list[dict[str, Any]]] | None:
         """Both players' actual current hands from the engine's spectator data.
 
         GetBattleData masks the non-selecting player's hand, but VisualizeData is the
@@ -422,7 +422,7 @@ class Session:
         if not self.active or self.search_id is not None:
             return None
         players = (self.obs or {}).get("current", {}).get("players") or []
-        stale = any(
+        stale = force or any(
             player.get("hand") is None
             and len(self.known_hands.get(index, [])) != player.get("handCount", 0)
             for index, player in enumerate(players)
@@ -445,7 +445,10 @@ class Session:
             "observation": self.obs,
             "autoSteps": auto_steps or [],
             "undoCount": self.undo_count(),
-            "trueHands": self.true_hands(),
+            # Multi-step responses replay the opponent's turn as animation frames; those
+            # frames need real hands too (e.g., a just-taken prize card in your hand),
+            # so fetch the spectator hands whenever auto-play happened.
+            "trueHands": self.true_hands(force=bool(auto_steps and len(auto_steps) > 1)),
         }
         # The full card/attack database is large; ship it once per battle, not on
         # every command (the client keeps the maps from the start response).

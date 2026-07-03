@@ -107,6 +107,60 @@ describe('cabtObservationToGameView', () => {
     ]);
   });
 
+  it('names ACTIVATE ability confirmations in Japanese (card, ability, effect text)', () => {
+    const dataMaps: CabtDataMaps = {
+      cardData: {
+        742: {
+          cardId: 742,
+          name: 'Kadabra',
+          cardType: CabtCardType.POKEMON,
+          stage1: true,
+          hp: 80,
+          skills: [{ name: ' Psychic Draw', text: 'Draw 2 cards.' }],
+        },
+      },
+      attacks: {},
+    };
+    const observation = {
+      select: {
+        type: CabtSelectType.YES_NO,
+        context: CabtSelectContext.ACTIVATE,
+        minCount: 1,
+        maxCount: 1,
+        remainDamageCounter: 0,
+        remainEnergyCost: 0,
+        option: [
+          { type: CabtOptionType.YES },
+          { type: CabtOptionType.NO },
+        ],
+        deck: null,
+        contextCard: null,
+        effect: { id: 742, serial: 10, playerIndex: 0 },
+      },
+      logs: [],
+      current: {
+        turn: 2,
+        turnActionCount: 1,
+        yourIndex: 0,
+        firstPlayer: 0,
+        supporterPlayed: false,
+        stadiumPlayed: false,
+        energyAttached: false,
+        retreated: false,
+        result: -1,
+        stadium: [],
+        looking: null,
+        players: [player(), player()],
+      },
+    } satisfies CabtObservation;
+
+    const view = cabtObservationToGameView(observation, [], dataMaps);
+    const prompt = view.prompts[0];
+
+    expect(prompt?.message).toBe('「ユンゲラー」の特性「サイコドロー」を使用しますか？');
+    expect(prompt?.fields.detail).toContain('自分の山札を2枚引く');
+  });
+
   it('renders attached energy cards for CABT discard-energy prompts', () => {
     const dataMaps: CabtDataMaps = {
       cardData: {

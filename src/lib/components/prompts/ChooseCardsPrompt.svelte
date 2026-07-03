@@ -124,6 +124,9 @@
         onclick={() => toggleIndex(cardIndex)}
       >
         <CardTile {card} compact />
+        {#if card.ownerLabel}
+          <span class="owner-label">{card.ownerLabel}</span>
+        {/if}
       </SelectableCard>
     {/each}
   </div>
@@ -140,3 +143,17 @@
     </button>
   {/snippet}
 </PromptPanel>
+
+<style>
+  .owner-label {
+    display: block;
+    margin-top: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--surface-inset-bg);
+    color: var(--text-secondary);
+    font-size: 10.5px;
+    line-height: 1.35;
+    text-align: center;
+  }
+</style>

@@ -181,7 +181,8 @@
     position: absolute;
     top: 54px;
     right: 14px;
-    z-index: 8;
+    /* Above the log panel/ticker (z8/z7) so the expanded settings stay clickable. */
+    z-index: 10;
     width: 148px;
     min-height: 0;
     display: flex;

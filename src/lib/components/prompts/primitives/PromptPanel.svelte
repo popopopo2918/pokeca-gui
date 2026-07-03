@@ -33,8 +33,8 @@
 
 {#if collapsed}
   <section class="prompt-panel prompt-panel-collapsed">
-    <button type="button" class="primary" onclick={() => (collapsed = false)}>
-      {title}を表示
+    <button type="button" class="primary" {title} onclick={() => (collapsed = false)}>
+      選択に戻る ▲
     </button>
   </section>
 {:else}
@@ -59,7 +59,7 @@
       <div class="prompt-actions">
         <div class="prompt-actions-left">
           {#if collapsible}
-            <button type="button" onclick={() => (collapsed = true)}>隠す</button>
+            <button type="button" title="盤面を確認するため一時的に隠します（「選択に戻る」で再表示）" onclick={() => (collapsed = true)}>隠す（盤面を確認）</button>
           {/if}
         </div>
         <div class="prompt-actions-main">
