@@ -14,6 +14,7 @@
     showLogs: boolean;
     animateActions: boolean;
     showActionSpotlight: boolean;
+    revealHands: boolean;
     actionStepDelayMs: number;
     themePreference: ThemePreference;
     busy?: boolean;
@@ -33,6 +34,8 @@
     stepBack: () => void;
     stepForward: () => void;
     returnToLive: () => void;
+    canUndo?: boolean;
+    undoMove: () => void;
     exportLog: () => void;
     exporting?: boolean;
   };
@@ -48,6 +51,7 @@
     showLogs = $bindable(),
     animateActions = $bindable(),
     showActionSpotlight = $bindable(),
+    revealHands = $bindable(),
     actionStepDelayMs = $bindable(),
     themePreference = $bindable(),
     busy = false,
@@ -67,6 +71,8 @@
     stepBack,
     stepForward,
     returnToLive,
+    canUndo = false,
+    undoMove,
     exportLog,
     exporting = false,
   }: Props = $props();
@@ -74,77 +80,91 @@
 
 <div class="table-toolbar">
   <button
-    class="danger concede-top"
-    style="width:100%; font-weight:900; border:1px solid var(--danger-border); background:var(--danger-bg); color:var(--danger-strong);"
+    class="danger"
     disabled={busy || promptActive || gameFinished || reviewing}
     onclick={concede}
   >投了</button>
-  <BoardPerspectiveControls
-    bind:boardTilt
-    bind:boardPerspective
-    bind:boardScaleY
-    bind:boardLift
-    {resetPerspective}
-  />
-  <label>
-    <input type="checkbox" bind:checked={followActive} />
-    手番のプレイヤーを追従
-  </label>
-  <label>
-    <input type="checkbox" bind:checked={autoConfirmPrompts} />
-    公開を自動で確認
-  </label>
-  <label>
-    <input type="checkbox" bind:checked={debugZones} />
-    ゾーンをデバッグ表示
-  </label>
-  <label>
-    <input type="checkbox" bind:checked={showLogs} />
-    ログを表示
-  </label>
-  <label>
-    <input type="checkbox" bind:checked={animateActions} />
-    1手ずつ再生
-  </label>
-  <label>
-    <input type="checkbox" bind:checked={showActionSpotlight} />
-    アクション表示
-  </label>
-  <label>
-    再生間隔(ms)
-    <input
-      class="compact-number"
-      type="number"
-      min="50"
-      max="2500"
-      step="50"
-      bind:value={actionStepDelayMs}
-      disabled={!animateActions}
-    />
-  </label>
-  <label>
-    テーマ
-    <select bind:value={themePreference} aria-label="テーマ設定">
-      <option value="system">システム</option>
-      <option value="light">ライト</option>
-      <option value="dark">ダーク</option>
-    </select>
-  </label>
+  <div class="sidebar-turn-actions">
+    <button class="turn-end" disabled={busy || promptActive || gameFinished || reviewing} onclick={passTurn}>ターンエンド</button>
+  </div>
   <div class="review-controls">
     <div class="rewind-row">
-      <button disabled={!canStepBack} onclick={stepBack} title="一手もどって確認">◀ もどる</button>
-      <button disabled={!reviewing} onclick={stepForward} title="一手すすむ">すすむ ▶</button>
+      <button disabled={!canStepBack} onclick={stepBack} title="一手もどって確認（Z）">◀ もどる</button>
+      <button disabled={!reviewing} onclick={stepForward} title="一手すすむ（X）">すすむ ▶</button>
     </div>
+    <button
+      class="undo-btn"
+      disabled={!canUndo || busy}
+      onclick={undoMove}
+      title="直前の自分の行動まで対戦を巻き戻して、別の手を指せます（山札の順番など非公開のカードは引き直し）"
+    >1手戻して指し直す</button>
     <button class="live-btn" class:reviewing disabled={!reviewing} onclick={returnToLive}>
       {reviewing ? `最新へ戻る（${reviewLabel}）` : 'ライブ表示中'}
     </button>
     <button onclick={exportLog} disabled={exporting}>{exporting ? '出力中…' : 'ログ出力'}</button>
   </div>
-  <div class="sidebar-turn-actions">
-    <button disabled={busy || promptActive || gameFinished || reviewing} onclick={passTurn}>番を終える</button>
-  </div>
   <button disabled={switchDisabled} onclick={switchSides}>視点を入れ替え</button>
   <button onclick={resetGame}>{resetLabel}</button>
+  <details class="display-settings">
+    <summary>表示・デバッグ設定</summary>
+    <div class="display-settings-body">
+      <BoardPerspectiveControls
+        bind:boardTilt
+        bind:boardPerspective
+        bind:boardScaleY
+        bind:boardLift
+        {resetPerspective}
+      />
+      <label>
+        <input type="checkbox" bind:checked={followActive} />
+        手番のプレイヤーを追従
+      </label>
+      <label>
+        <input type="checkbox" bind:checked={autoConfirmPrompts} />
+        公開を自動で確認
+      </label>
+      <label title="自作AIのデバッグ用：非公開の手札も表向きで表示（H）">
+        <input type="checkbox" bind:checked={revealHands} />
+        相手の手札を公開（H）
+      </label>
+      <label>
+        <input type="checkbox" bind:checked={debugZones} />
+        ゾーンをデバッグ表示
+      </label>
+      <label title="行動ログパネルの表示切替（L）">
+        <input type="checkbox" bind:checked={showLogs} />
+        ログを表示（L）
+      </label>
+      <label>
+        <input type="checkbox" bind:checked={animateActions} />
+        1手ずつ再生
+      </label>
+      <label>
+        <input type="checkbox" bind:checked={showActionSpotlight} />
+        アクション表示
+      </label>
+      <label>
+        再生間隔(ms)
+        <input
+          class="compact-number"
+          type="number"
+          min="50"
+          max="2500"
+          step="50"
+          bind:value={actionStepDelayMs}
+          disabled={!animateActions}
+        />
+      </label>
+      <label>
+        テーマ
+        <select bind:value={themePreference} aria-label="テーマ設定">
+          <option value="system">システム</option>
+          <option value="light">ライト</option>
+          <option value="dark">ダーク</option>
+        </select>
+      </label>
+    </div>
+  </details>
   {#if error}
     <span class="inline-error">{labelFor(error)}</span>
   {/if}
@@ -230,7 +250,67 @@
   }
 
   .table-toolbar button.danger {
-    color: var(--danger-text);
+    border-color: var(--danger-border);
+    background: var(--danger-bg);
+    color: var(--danger-strong);
+    font-weight: 900;
+  }
+
+  /* Stand-out turn-end button: fixed yellow works on both themes. */
+  .table-toolbar button.turn-end {
+    background: #f7c948;
+    border-color: #d9a400;
+    color: #1d232b;
+    font-size: 12px;
+    font-weight: 900;
+    padding: 8px 7px;
+  }
+
+  .table-toolbar button.turn-end:not(:disabled):hover {
+    background: #ffd75e;
+  }
+
+  .table-toolbar button.turn-end:disabled {
+    opacity: 0.45;
+  }
+
+  .review-controls .undo-btn:not(:disabled) {
+    border-color: var(--accent-base);
+    color: var(--accent-base);
+  }
+
+  .display-settings {
+    border-top: 1px solid var(--surface-inset-border);
+    padding-top: 5px;
+  }
+
+  .display-settings summary {
+    padding: 6px 7px;
+    border: 1px solid var(--button-border);
+    border-radius: 5px;
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+  }
+
+  .display-settings summary::marker,
+  .display-settings summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .display-settings[open] summary {
+    background: var(--surface-inset-bg);
+  }
+
+  .display-settings-body {
+    display: grid;
+    gap: 2px;
+    margin-top: 7px;
   }
 
   .table-toolbar select {

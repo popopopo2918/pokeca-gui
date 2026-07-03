@@ -8,5 +8,6 @@ export type GameCommandApi = {
   concede(playerIndex: number): Promise<EngineResponse>;
   retreat(playerIndex: number, to: number): Promise<EngineResponse>;
   passTurn(playerIndex: number): Promise<EngineResponse>;
+  undo(count?: number): Promise<EngineResponse>;
   resolvePrompt(id: number, result: unknown): Promise<EngineResponse>;
 };

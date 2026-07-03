@@ -48,9 +48,14 @@ type BridgeResponse = {
   traceback?: string;
   observation?: CabtObservation;
   autoSteps?: CabtObservation[];
+  undoCount?: number;
   cards?: CabtCardData[];
   attacks?: CabtAttack[];
 };
+
+/** Session problems get their own type so the client can tell them apart from
+ * ordinary engine errors (whose tracebacks may coincidentally contain "session"). */
+class SessionError extends Error {}
 
 type PendingBridgeCall = {
   resolve: (value: BridgeResponse) => void;
@@ -118,6 +123,7 @@ export class LocalEngineController {
   private timelineId = 1;
   private pendingSequence: GameView[] = [];
   private sessionId = '';
+  private undoCount = 0;
   private pendingRetreatTarget: PendingRetreatTarget | null = null;
   private knownHands = new Map<number, CabtCard[]>();
   private replayFrames: CabtObservation[] = [];
@@ -157,6 +163,8 @@ export class LocalEngineController {
           return await this.retreat(command.payload);
         case 'passTurn':
           return await this.selectMatchingOption((option) => option.type === CabtOptionType.END);
+        case 'undo':
+          return await this.undo(command.payload);
         case 'resolvePrompt':
           return await this.applySelection(this.normalizePromptSelection(command.payload?.result));
         default:
@@ -166,6 +174,7 @@ export class LocalEngineController {
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),
+        sessionExpired: error instanceof SessionError ? true : undefined,
         view: this.view(),
       };
     }
@@ -330,6 +339,22 @@ export class LocalEngineController {
     this.logs = [{
       id: this.logId++,
       message: `CABT対戦を開始しました（${this.replayModeLabel}）。`,
+    }];
+    return this.viewResponse();
+  }
+
+  /** Rewind to the previous main-phase decision so a different move can be played.
+   * The native engine cannot restore state, so the bridge re-seeds the game into its
+   * search tree; hidden cards (deck order, prizes, unseen hands) are re-randomized. */
+  private async undo(payload: any): Promise<EngineResponse> {
+    const count = typeof payload?.count === 'number' && payload.count > 0 ? Math.floor(payload.count) : 1;
+    const response = await this.bridge.request({ command: 'undo', count });
+    this.applyBridgeResponse(response);
+    this.pendingRetreatTarget = null;
+    this.pendingSequence = [];
+    this.logs = [...this.logs, {
+      id: this.logId++,
+      message: '1手戻しました（山札の順番など非公開のカードは引き直しになります）。',
     }];
     return this.viewResponse();
   }
@@ -502,6 +527,9 @@ export class LocalEngineController {
     this.pendingSequence = [...this.pendingSequence, ...this.appendTimeline(response)];
     this.recordReplayFrames(response);
     this.observation = this.withKnownHands(response.observation ?? null);
+    if (typeof response.undoCount === 'number') {
+      this.undoCount = response.undoCount;
+    }
   }
 
   private viewResponse(): EngineResponse {
@@ -512,6 +540,7 @@ export class LocalEngineController {
       view: this.view(),
       sequence: sequence.length ? sequence : undefined,
       sessionId: this.sessionId || undefined,
+      undoCount: this.undoCount,
     };
   }
 
@@ -724,19 +753,20 @@ export class LocalEngineController {
 
   private assertSession(payload?: any): void {
     if (!this.sessionId) {
-      throw new Error('有効なCABTセッションがありません。新しく対戦を開始してください。');
+      throw new SessionError('有効なCABTセッションがありません。新しく対戦を開始してください。');
     }
     const payloadSessionId = payload?.sessionId;
     if (typeof payloadSessionId !== 'string' || !payloadSessionId) {
-      throw new Error('CABTセッションIDが必要です。新しく対戦を開始してください。');
+      throw new SessionError('CABTセッションIDが必要です。新しく対戦を開始してください。');
     }
     if (payloadSessionId !== this.sessionId) {
-      throw new Error('CABTセッションの有効期限が切れました。新しく対戦を開始してください。');
+      throw new SessionError('CABTセッションの有効期限が切れました。新しく対戦を開始してください。');
     }
   }
 
   private invalidateSession(message: string): void {
     this.sessionId = '';
+    this.undoCount = 0;
     this.observation = null;
     this.pendingRetreatTarget = null;
     this.knownHands.clear();
@@ -761,7 +791,7 @@ class CabtBridgeClient {
     await this.ensureStarted(!!options.allowStart);
     const child = this.child;
     if (!child) {
-      throw new Error('CABTセッションの有効期限が切れました。新しく対戦を開始してください。');
+      throw new SessionError('CABTセッションの有効期限が切れました。新しく対戦を開始してください。');
     }
 
     const id = this.nextId++;
@@ -780,7 +810,7 @@ class CabtBridgeClient {
     }
     this.generation += 1;
     this.child = null;
-    this.rejectPending(new Error('CABTエンジンを終了しました。'));
+    this.rejectPending(new SessionError('CABTエンジンを終了しました。'));
     child.stdin.destroy();
     child.stdout.destroy();
     child.stderr.destroy();
@@ -820,7 +850,7 @@ class CabtBridgeClient {
       if (this.child !== child || this.generation !== generation) {
         return;
       }
-      const error = new Error(`CABTエンジンが終了しました (${code ?? signal})。${this.stderr ? `\n${this.stderr}` : ''}`);
+      const error = new SessionError(`CABTエンジンが終了しました (${code ?? signal})。${this.stderr ? `\n${this.stderr}` : ''}`);
       this.rejectPending(error);
       this.child = null;
       this.onExit();

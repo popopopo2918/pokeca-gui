@@ -11,6 +11,8 @@ class GameStore {
   history = $state<GameView[]>([]);
   /** null = following the live game; otherwise an index into `history` being reviewed. */
   reviewIndex = $state<number | null>(null);
+  /** How many past decisions the engine can rewind with the undo command. */
+  undoCount = $state(0);
   private playbackConfirmResolve: (() => void) | null = null;
   private generation = 0;
 
@@ -63,6 +65,13 @@ class GameStore {
     this.reviewIndex = null;
   }
 
+  /** After an engine undo the recorded frames describe an abandoned branch; restart
+   * the in-match review history from the restored state. */
+  restartHistoryFromCurrent() {
+    this.history = this.game ? [this.game] : [];
+    this.reviewIndex = null;
+  }
+
   private recordHistory(sequence: GameView[] | undefined, view: GameView | null | undefined) {
     const frames = sequence?.length ? sequence : view ? [view] : [];
     if (!frames.length) return;
@@ -85,6 +94,7 @@ class GameStore {
     this.playingSequence = false;
     this.history = [];
     this.reviewIndex = null;
+    this.undoCount = 0;
     this.playbackConfirmResolve?.();
     this.playbackConfirmResolve = null;
   }
@@ -149,6 +159,9 @@ class GameStore {
       this.game = response.view;
       this.error = '';
       this.recordHistory(response.sequence, response.view);
+      if (typeof response.undoCount === 'number') {
+        this.undoCount = response.undoCount;
+      }
       return response;
     }
 

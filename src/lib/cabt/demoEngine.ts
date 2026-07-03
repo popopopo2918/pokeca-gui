@@ -753,7 +753,7 @@ function optionLabel(option: CabtOption, dataMaps: CabtDataMaps, observation: Ca
   if (option.type === CabtOptionType.NUMBER) return numberOptionLabel(option, context);
   if (option.type === CabtOptionType.YES) return 'はい';
   if (option.type === CabtOptionType.NO) return 'いいえ';
-  if (option.type === CabtOptionType.END) return '番を終える';
+  if (option.type === CabtOptionType.END) return 'ターンエンド';
   if (option.attackId) return dataMaps.attacks[option.attackId]?.name ?? `ワザ${option.attackId}`;
   if (option.cardId) return dataMaps.cardData[option.cardId]?.name ?? `カード${option.cardId}`;
   const optionCard = cardForOption(option, observation);

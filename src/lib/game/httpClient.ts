@@ -61,12 +61,20 @@ async function send(command: Command): Promise<EngineResponse> {
   const body = await response.json() as EngineResponse;
   if (body.ok && body.sessionId) {
     currentSessionId = body.sessionId;
-  } else if (!body.ok && (body.error.includes('session') || body.error.includes('セッション'))) {
-    // Drop the stale session id so the next command can start a fresh game. The engine reports
-    // session problems in Japanese ("セッション"); the English check stays for older responses.
+  } else if (!body.ok && (body.sessionExpired || isSessionErrorMessage(body.error))) {
+    // Drop the stale session id so the next command can start a fresh game.
     currentSessionId = '';
   }
   return body;
+}
+
+// Fallback for older servers that do not send the structured `sessionExpired` flag.
+// Only the first line is checked: engine errors append Python tracebacks that contain
+// unrelated matches like `session.select(...)`, and dropping the id on such errors used
+// to lock the whole match behind 「CABTセッションIDが必要です」.
+function isSessionErrorMessage(error: string | undefined): boolean {
+  const firstLine = (error ?? '').split('\n', 1)[0];
+  return firstLine.includes('セッション') || firstLine.toLowerCase().includes('session expired');
 }
 
 export function hostedAvailableActionsScope(command: Command): AvailableActionsScope | undefined {
@@ -167,6 +175,10 @@ export const localGameApi: GameCommandApi & {
 
   passTurn(playerIndex: number) {
     return send({ type: 'passTurn', payload: { playerIndex } });
+  },
+
+  undo(count = 1) {
+    return send({ type: 'undo', payload: { count } });
   },
 
   resolvePrompt(id: number, result: unknown) {

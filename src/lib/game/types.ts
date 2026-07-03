@@ -165,12 +165,16 @@ export type EngineOk = {
   view: GameView;
   sequence?: GameView[];
   sessionId?: string;
+  /** How many past decisions can still be rewound with the undo command. */
+  undoCount?: number;
 };
 
 export type EngineFailure = {
   ok: false;
   error: string;
   view?: GameView;
+  /** True only when the engine rejected the command because the session is gone. */
+  sessionExpired?: boolean;
 };
 
 export type EngineResponse = EngineOk | EngineFailure;

@@ -47,6 +47,7 @@
     firstLegalCabtSelection,
     legalizeCabtSelection,
     promptBlockedIndexes,
+    promptHasInteractiveUi,
     promptInstanceKey,
     promptOptions,
     shouldAutoResolvePrompt,
@@ -123,7 +124,8 @@
     deckBuilderOpen = false;
   }
 
-  // Keyboard shortcuts during a live match: z = step back one move, x = step forward.
+  // Keyboard shortcuts during a live match:
+  // z = step back one move, x = step forward, l = toggle log panel, h = reveal concealed hands.
   function handleGlobalKeydown(event: KeyboardEvent) {
     if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
       return;
@@ -143,6 +145,12 @@
     } else if (key === 'x') {
       gameStore.stepForward();
       event.preventDefault();
+    } else if (key === 'l') {
+      viewSettingsStore.showLogs = !viewSettingsStore.showLogs;
+      event.preventDefault();
+    } else if (key === 'h') {
+      viewSettingsStore.revealHands = !viewSettingsStore.revealHands;
+      event.preventDefault();
     }
   }
   let agents = $state<AgentOption[]>([]);
@@ -151,12 +159,41 @@
   let activeProfile = $state(
     typeof localStorage !== 'undefined' ? localStorage.getItem('cabt:activeProfile') || 'default' : 'default',
   );
-  let player1Control = $state<PlayerControl>('self');
-  let player2Control = $state<PlayerControl>('agent');
-  let player1AgentId = $state('');
-  let player2AgentId = $state('');
-  let player1DeckSource = $state('import');
-  let player2DeckSource = $state('import');
+
+  // Restore the last match setup (who is self/agent, which agents/decks) so repeat AI test
+  // sessions start with one click. Agent/deck ids are re-validated in refreshCatalog().
+  const MATCH_SETUP_STORAGE_KEY = 'cabt.matchSetup';
+  type StoredMatchSetup = {
+    player1Control?: PlayerControl;
+    player2Control?: PlayerControl;
+    player1AgentId?: string;
+    player2AgentId?: string;
+    player1DeckSource?: string;
+    player2DeckSource?: string;
+  };
+  function readStoredMatchSetup(): StoredMatchSetup {
+    if (typeof window === 'undefined') {
+      return {};
+    }
+    try {
+      const raw = window.localStorage.getItem(MATCH_SETUP_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return typeof parsed === 'object' && parsed !== null ? (parsed as StoredMatchSetup) : {};
+    } catch {
+      return {};
+    }
+  }
+  function storedControl(value: PlayerControl | undefined, fallback: PlayerControl): PlayerControl {
+    return value === 'self' || value === 'agent' ? value : fallback;
+  }
+  const storedMatchSetup = readStoredMatchSetup();
+
+  let player1Control = $state<PlayerControl>(storedControl(storedMatchSetup.player1Control, 'self'));
+  let player2Control = $state<PlayerControl>(storedControl(storedMatchSetup.player2Control, 'agent'));
+  let player1AgentId = $state(typeof storedMatchSetup.player1AgentId === 'string' ? storedMatchSetup.player1AgentId : '');
+  let player2AgentId = $state(typeof storedMatchSetup.player2AgentId === 'string' ? storedMatchSetup.player2AgentId : '');
+  let player1DeckSource = $state(typeof storedMatchSetup.player1DeckSource === 'string' ? storedMatchSetup.player1DeckSource : 'import');
+  let player2DeckSource = $state(typeof storedMatchSetup.player2DeckSource === 'string' ? storedMatchSetup.player2DeckSource : 'import');
   let activePlayerControls = $state<[PlayerControl, PlayerControl]>(['self', 'agent']);
   let lastLoadedPlayer1DeckSource = $state('');
   let lastLoadedPlayer2DeckSource = $state('');
@@ -192,6 +229,7 @@
   let boardLift = $derived(viewSettingsStore.boardLift);
   let debugZones = $derived(viewSettingsStore.debugZones);
   let showLogs = $derived(viewSettingsStore.showLogs);
+  let revealHands = $derived(viewSettingsStore.revealHands);
   let theme = $derived(viewSettingsStore.theme);
   let themePreference = $derived(viewSettingsStore.themePreference);
   let selectedPlayer1Agent = $derived(agents.find((agent) => agent.id === player1AgentId));
@@ -272,6 +310,27 @@
     await deleteWorkspaceAgent(activeProfile, name);
     await refreshCatalog();
   }
+  $effect(() => {
+    viewSettingsStore.persistSettings();
+  });
+  $effect(() => {
+    deckImportStore.persist();
+  });
+  $effect(() => {
+    const snapshot: StoredMatchSetup = {
+      player1Control,
+      player2Control,
+      player1AgentId,
+      player2AgentId,
+      player1DeckSource,
+      player2DeckSource,
+    };
+    try {
+      localStorage.setItem(MATCH_SETUP_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // Match setup still applies for the current session when storage is unavailable.
+    }
+  });
   $effect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.themePreference = themePreference;
@@ -585,6 +644,8 @@
 
     selectionStore.setSelectedHand(null);
     resetSaveReplayStatus();
+    sessionResultRecorded = false;
+    resetSessionTallyIfMatchupChanged();
     replayStore.clear();
     gameStore.reset();
     homeMode = 'play';
@@ -597,6 +658,34 @@
         player2AgentId,
       }),
     );
+  }
+
+  // Restart from the end-game screen without flashing the import screen while the
+  // new match is being created.
+  let rematching = $state(false);
+
+  async function rematch(swapSides: boolean) {
+    if (rematching) {
+      return;
+    }
+    rematching = true;
+    try {
+      if (swapSides) {
+        // Swap sides so the same AI can be tested going both first and second.
+        const deck1 = deckImportStore.deck1Text;
+        deckImportStore.deck1Text = deckImportStore.deck2Text;
+        deckImportStore.deck2Text = deck1;
+        [player1Control, player2Control] = [player2Control, player1Control];
+        [player1AgentId, player2AgentId] = [player2AgentId, player1AgentId];
+        [player1DeckSource, player2DeckSource] = [player2DeckSource, player1DeckSource];
+        [lastLoadedPlayer1DeckSource, lastLoadedPlayer2DeckSource] = [lastLoadedPlayer2DeckSource, lastLoadedPlayer1DeckSource];
+        // Swapping sides also swaps which player index the session tally belongs to.
+        sessionWins = [sessionWins[1], sessionWins[0]];
+      }
+      await startGame();
+    } finally {
+      rematching = false;
+    }
   }
 
   async function refreshCatalog() {
@@ -757,6 +846,51 @@
     }
   });
 
+  // Session win/loss tally across rematches, so repeated AI test runs show a running score.
+  let sessionWins = $state<[number, number]>([0, 0]);
+  let sessionDraws = $state(0);
+  let sessionResultRecorded = $state(false);
+  let sessionMatchupKey = $state('');
+
+  // The tally only makes sense for one matchup. Reset it when decks/controls/agents change;
+  // the key is order-independent so a side-swapped rematch keeps (and swaps) the tally.
+  function resetSessionTallyIfMatchupChanged() {
+    const sideSignature = (control: PlayerControl, agentId: string, deckText: string) =>
+      `${control}|${control === 'agent' ? agentId : ''}|${deckText.trim()}`;
+    const key = [
+      sideSignature(player1Control, player1AgentId, deckImportStore.deck1Text),
+      sideSignature(player2Control, player2AgentId, deckImportStore.deck2Text),
+    ]
+      .sort()
+      .join('~~');
+    if (key !== sessionMatchupKey) {
+      sessionMatchupKey = key;
+      sessionWins = [0, 0];
+      sessionDraws = 0;
+    }
+  }
+  $effect(() => {
+    if (replayMode || !gameStore.gameFinished || sessionResultRecorded) {
+      return;
+    }
+    sessionResultRecorded = true;
+    const winner = gameStore.game?.winner;
+    if (winner === 0 || winner === 1) {
+      sessionWins[winner] += 1;
+    } else if (winner === 3) {
+      sessionDraws += 1;
+    }
+  });
+  let sessionRecordLabel = $derived.by(() => {
+    const total = sessionWins[0] + sessionWins[1] + sessionDraws;
+    if (!game || total === 0) {
+      return '';
+    }
+    const players = game.players;
+    const drawPart = sessionDraws > 0 ? ` ／ 引き分け ${sessionDraws}` : '';
+    return `通算 ${total}戦: ${players[0]?.name ?? 'プレイヤー1'} ${sessionWins[0]}勝 ／ ${players[1]?.name ?? 'プレイヤー2'} ${sessionWins[1]}勝${drawPart}`;
+  });
+
   async function playToTarget(target: CardTarget) {
     if (!selectedHand || !game || !canAct(selectedHand.playerIndex)) {
       return;
@@ -830,12 +964,29 @@
 
   async function concede() {
     if (!game || !activePlayer || gameFinished) return;
+    // Guard against a stray click ending a long test match.
+    if (!window.confirm(`${activePlayer.name} が投了して対戦を終了します。よろしいですか？`)) {
+      return;
+    }
     await gameSessionStore.run(() => commandApi.concede(game.activePlayerIndex));
   }
 
   async function passTurn() {
     if (!game) return;
     await gameSessionStore.run(() => commandApi.passTurn(game.activePlayerIndex));
+  }
+
+  // Rewind the engine to the previous main-phase decision so a different move can be
+  // played. Hidden cards (deck order, prizes, unseen hands) are re-randomized.
+  async function undoMove() {
+    if (!game || replayMode || gameStore.undoCount <= 0) return;
+    gameStore.returnToLive();
+    selectionStore.clearAll();
+    retreatSource = null;
+    const response = await gameSessionStore.run(() => commandApi.undo(1));
+    if (response.ok) {
+      gameStore.restartHistoryFromCurrent();
+    }
   }
 
   async function retreat(to: number) {
@@ -881,9 +1032,20 @@
   // Safety net: resolve any prompt with the first legal selection so a card effect can never
   // leave the game stuck, even if its dedicated UI does not render for some board state.
   // Mirrors the CABT reference agent (`list(range(select.maxCount))`).
+  // The player must confirm — a card effect's choice is never made silently on their behalf.
   function advanceCurrentPrompt() {
     if (!currentPrompt) return;
-    void resolvePrompt(firstLegalCabtSelection(currentPrompt));
+    const selection = firstLegalCabtSelection(currentPrompt);
+    const cards = extractPromptCards(currentPrompt.fields);
+    const names = selection
+      .map((optionIndex) => cards.find((card, cardIndex) => (card.index ?? cardIndex) === optionIndex))
+      .map((card) => card?.fullName || card?.name)
+      .filter((name): name is string => !!name);
+    const detail = names.length ? `\n自動で選ばれる候補: ${names.join('、')}` : '';
+    if (!window.confirm(`最初の有効な選択肢で自動的に進めます。${detail}\nよろしいですか？`)) {
+      return;
+    }
+    void resolvePrompt(selection);
   }
 
   function selectHandCard(playerIndex: number, handIndex: number) {
@@ -960,6 +1122,15 @@
       if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'replay') {
         window.history.replaceState({}, '', window.location.pathname);
       }
+      return;
+    }
+    // Guard against a stray click abandoning a running test match (finished/broken games exit freely).
+    if (
+      gameStore.game?.ready &&
+      !gameStore.gameFinished &&
+      !gameStore.error &&
+      !window.confirm('対戦を中断してメイン画面に戻りますか？')
+    ) {
       return;
     }
     gameSessionStore.reset();
@@ -1317,6 +1488,14 @@
         <span>{replayStore.loading ? 'CABTのリプレイを準備しています。' : labelFor(error || 'リプレイを読み込めませんでした。')}</span>
       </div>
     </section>
+  {:else if !game && rematching}
+    <AppHeader />
+    <section class="replay-loading-screen">
+      <div class="replay-loading-panel">
+        <strong>再戦を開始しています…</strong>
+        <span>同じ設定で新しい対戦を準備しています。</span>
+      </div>
+    </section>
   {:else if !game}
     <AppHeader
       onOpenDeckBuilder={() => (deckBuilderOpen = true)}
@@ -1370,6 +1549,7 @@
         resultLabel={gameResultLabel}
         modeLabel={replayMode ? '' : modeLabel}
         {gameFinished}
+        thinking={!replayMode && sessionBusy && !actingPlayerIsSelf && !playingSequence}
       />
 
       {#if !replayMode && !gameFinished}
@@ -1393,6 +1573,7 @@
         bind:showLogs={viewSettingsStore.showLogs}
         bind:animateActions={viewSettingsStore.animateActions}
         bind:showActionSpotlight={viewSettingsStore.showActionSpotlight}
+        bind:revealHands={viewSettingsStore.revealHands}
         bind:actionStepDelayMs={viewSettingsStore.actionStepDelayMs}
         bind:themePreference={viewSettingsStore.themePreference}
         busy={sessionBusy}
@@ -1412,6 +1593,8 @@
         stepBack={() => gameStore.stepBack()}
         stepForward={() => gameStore.stepForward()}
         returnToLive={() => gameStore.returnToLive()}
+        canUndo={!replayMode && gameStore.undoCount > 0}
+        undoMove={() => void undoMove()}
         exportLog={() => void exportLog()}
         exporting={exportingLog}
       />
@@ -1440,6 +1623,10 @@
           resultLabel={gameResultLabel}
           turn={game.turn}
           onconfirm={resetGame}
+          onrematch={() => void rematch(false)}
+          onrematchSwapped={() => void rematch(true)}
+          rematchDisabled={sessionBusy || savingReplay || player1DeckLoading || player2DeckLoading}
+          recordLabel={sessionRecordLabel}
           onsave={() => void saveReplay()}
           saveDisabled={savingReplay || !!saveReplayMessage}
           saveMessage={saveReplayMessage}
@@ -1475,7 +1662,7 @@
         </PromptDock>
       {/if}
 
-      {#if currentPrompt && !autoResolvePrompt && actingPlayerIsSelf && currentPrompt.fields.playbackOnly !== true && !setupPrompt}
+      {#if currentPrompt && !autoResolvePrompt && actingPlayerIsSelf && currentPrompt.fields.playbackOnly !== true && !setupPrompt && !promptHasInteractiveUi(currentPrompt)}
         <button
           class="prompt-safety-advance"
           style="position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:20; padding:7px 14px; border-radius:999px; border:1px solid var(--button-border); background:var(--surface-glass-bg); color:var(--text-secondary); font-size:12px; font-weight:600; cursor:pointer; box-shadow:var(--surface-toolbar-shadow); backdrop-filter:blur(var(--backdrop-blur));"
@@ -1522,7 +1709,7 @@
             disabled={!isSelfControlled(topPlayer.index) || (!canAct(topPlayer.index) && setupPrompt?.playerIndex !== topPlayer.index)}
             playableIndexes={setupPrompt?.playerIndex === topPlayer.index ? setupPlayableIndexes : []}
             placedIndexes={setupPrompt?.playerIndex === topPlayer.index ? setupPlacedIndexes : []}
-            concealed={topPlayer.index !== actingPlayerIndex || !isSelfControlled(topPlayer.index)}
+            concealed={!revealHands && (topPlayer.index !== actingPlayerIndex || !isSelfControlled(topPlayer.index))}
             onSelect={selectHandCard}
             onDrag={onHandDrag}
             onDragEnd={clearDragState}
@@ -1571,7 +1758,7 @@
             disabled={!isSelfControlled(bottomPlayer.index) || (!canAct(bottomPlayer.index) && setupPrompt?.playerIndex !== bottomPlayer.index)}
             playableIndexes={setupPrompt?.playerIndex === bottomPlayer.index ? setupPlayableIndexes : []}
             placedIndexes={setupPrompt?.playerIndex === bottomPlayer.index ? setupPlacedIndexes : []}
-            concealed={!isSelfControlled(bottomPlayer.index)}
+            concealed={!revealHands && !isSelfControlled(bottomPlayer.index)}
             onSelect={selectHandCard}
             onDrag={onHandDrag}
             onDragEnd={clearDragState}
