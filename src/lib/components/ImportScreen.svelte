@@ -27,6 +27,9 @@
     catalogError?: string;
     setHomeMode: (mode: HomeMode) => void;
     startGame: () => void;
+    createOnlineRoom: () => void;
+    joinOnlineRoom: (code: string) => void;
+    onlineBusy?: boolean;
     loadGameLog: (log: GameLogEntry) => void;
     refreshCatalog: () => void;
   };
@@ -52,9 +55,14 @@
     catalogError = '',
     setHomeMode,
     startGame,
+    createOnlineRoom,
+    joinOnlineRoom,
+    onlineBusy = false,
     loadGameLog,
     refreshCatalog,
   }: Props = $props();
+
+  let onlineJoinCode = $state('');
 
   let deckOptions = $derived(agents.filter((agent) => !!agent.deckUrl));
   let previewTarget = $state<0 | 1 | null>(null);
@@ -225,6 +233,31 @@
     <button class="primary" disabled={startDisabled} onclick={startGame}>
       {busy ? '開始中…' : '対戦開始'}
     </button>
+
+    <div class="online-box">
+      <strong>🌐 オンライン対戦（遠隔の相手とリアルタイム）</strong>
+      <p>プレイヤー1のデッキを使用します。ルームを作って表示されたコードを相手に伝えるか、相手から聞いたコードで参加してください（相手も同じURLを開きます）。</p>
+      <div class="online-actions">
+        <button type="button" disabled={busy || onlineBusy} onclick={createOnlineRoom}>
+          {onlineBusy ? '処理中…' : 'ルームを作成'}
+        </button>
+        <span class="online-join">
+          <input
+            type="text"
+            bind:value={onlineJoinCode}
+            placeholder="ルームコード（例: ABC234）"
+            aria-label="参加するルームコード"
+            maxlength="8"
+            spellcheck="false"
+            onkeydown={(event) => event.key === 'Enter' && onlineJoinCode.trim() && joinOnlineRoom(onlineJoinCode)}
+          />
+          <button type="button" disabled={busy || onlineBusy || !onlineJoinCode.trim()} onclick={() => joinOnlineRoom(onlineJoinCode)}>
+            参加
+          </button>
+        </span>
+      </div>
+    </div>
+
     {#if error}
       <pre class="error">{error}</pre>
     {/if}
@@ -426,6 +459,55 @@
   select optgroup {
     background: #ffffff;
     color: #1d232b;
+  }
+
+  .online-box {
+    display: grid;
+    gap: 8px;
+    padding: 14px;
+    border: 1px solid var(--surface-inset-border);
+    border-radius: 8px;
+    background: var(--surface-inset-bg);
+    color: var(--text-primary);
+  }
+
+  .online-box p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .online-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .online-actions button {
+    border: 1px solid var(--button-border);
+    border-radius: 8px;
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-weight: 700;
+    padding: 9px 14px;
+  }
+
+  .online-join {
+    display: grid;
+    grid-template-columns: minmax(160px, 220px) auto;
+    gap: 8px;
+  }
+
+  .online-join input {
+    min-height: 38px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--input-text);
+    padding: 0 12px;
+    text-transform: uppercase;
   }
 
   .preview-button {

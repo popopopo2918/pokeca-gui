@@ -101,6 +101,56 @@ function hostedAvailableActionsOptions(command: Command): { availableActionsScop
   return availableActionsScope ? { availableActionsScope } : {};
 }
 
+// ---- 遠隔対戦ルーム ----
+
+async function roomFetch(path: string, init?: RequestInit): Promise<any> {
+  const response = await fetch(`/local-engine/rooms${path}`, {
+    ...init,
+    headers: { ...jsonHeaders(), ...(init?.headers ?? {}) },
+  });
+  return response.json();
+}
+
+export const roomApi = {
+  create(deck: string[]) {
+    return roomFetch('', { method: 'POST', body: JSON.stringify({ deck }) });
+  },
+  join(code: string, deck: string[]) {
+    return roomFetch(`/${encodeURIComponent(code.trim().toUpperCase())}/join`, { method: 'POST', body: JSON.stringify({ deck }) });
+  },
+  state(code: string, since: number) {
+    return roomFetch(`/${encodeURIComponent(code)}/state?since=${since}`, { method: 'GET' });
+  },
+  leave(code: string) {
+    return roomFetch(`/${encodeURIComponent(code)}/leave`, { method: 'POST', body: '{}' });
+  },
+  command(code: string, type: string, payload?: unknown) {
+    return roomFetch(`/${encodeURIComponent(code)}/command`, { method: 'POST', body: JSON.stringify({ type, payload }) }) as Promise<EngineResponse>;
+  },
+};
+
+/** GameCommandApi that routes every command through an online room. */
+export function createRoomGameApi(code: string, onRevision?: (revision: number) => void): GameCommandApi {
+  const send = (type: string, payload?: unknown) =>
+    roomApi.command(code, type, payload).then((body: EngineResponse & { revision?: number }) => {
+      if (typeof body.revision === 'number') {
+        onRevision?.(body.revision);
+      }
+      return body;
+    });
+  return {
+    playCard: (playerIndex, handIndex, target) => send('playCard', { playerIndex, handIndex, target }),
+    attack: (playerIndex, attack) => send('attack', { playerIndex, attack }),
+    useAbility: (playerIndex, ability, target) => send('useAbility', { playerIndex, ability, target }),
+    useStadium: (playerIndex) => send('useStadium', { playerIndex }),
+    concede: (playerIndex) => send('concede', { playerIndex }),
+    retreat: (playerIndex, to) => send('retreat', { playerIndex, to }),
+    passTurn: (playerIndex) => send('passTurn', { playerIndex }),
+    undo: () => Promise.resolve({ ok: false, error: 'オンライン対戦では指し直しは使えません。' }),
+    resolvePrompt: (id, result) => send('resolvePrompt', { id, result }),
+  };
+}
+
 export const localGameApi: GameCommandApi & {
   start(
     player1Deck: string[],

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LocalEngineController, GAME_LOGS_DIR } from './localEngine';
 import { importOfficialDeckCode } from './officialDeck';
+import { createRoom, joinRoom, leaveRoom, roomCommand, roomState } from './rooms';
 import { WORKSPACES_DIR } from './workspaces';
 import { dataSyncEnabled, pullAll } from './dataStore';
 
@@ -202,6 +203,45 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/local-engine/save-replay') {
     const response = controller.saveReplay();
     writeJson(res, response.ok ? 200 : 400, response);
+    return;
+  }
+
+  // ---- 遠隔対戦ルーム ----
+  if (url.pathname.startsWith('/local-engine/rooms')) {
+    const clientId = clientIdOf(req);
+    try {
+      if (req.method === 'POST' && url.pathname === '/local-engine/rooms') {
+        const body = JSON.parse((await readBody(req)) || '{}');
+        writeJson(res, 200, createRoom(clientId, body.deck));
+        return;
+      }
+      const match = url.pathname.match(/^\/local-engine\/rooms\/([A-Za-z0-9]+)\/(join|state|command|leave)$/);
+      if (match) {
+        const [, roomCode, action] = match;
+        if (action === 'state' && req.method === 'GET') {
+          const since = Number(url.searchParams.get('since') ?? 0) || 0;
+          writeJson(res, 200, roomState(clientId, roomCode, since));
+          return;
+        }
+        const body = JSON.parse((await readBody(req)) || '{}');
+        if (action === 'join' && req.method === 'POST') {
+          writeJson(res, 200, await joinRoom(clientId, roomCode, body.deck));
+          return;
+        }
+        if (action === 'command' && req.method === 'POST') {
+          const response = await roomCommand(clientId, roomCode, body);
+          writeJson(res, response.ok ? 200 : 400, response);
+          return;
+        }
+        if (action === 'leave' && req.method === 'POST') {
+          writeJson(res, 200, leaveRoom(clientId, roomCode));
+          return;
+        }
+      }
+      writeJson(res, 404, { ok: false, error: 'Not found' });
+    } catch (error) {
+      writeJson(res, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
     return;
   }
 

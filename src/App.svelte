@@ -30,7 +30,7 @@
   import Toolbar from './lib/components/Toolbar.svelte';
   import ZoneViewer from './lib/components/ZoneViewer.svelte';
   import type { GameCommandApi } from './lib/game/gameApi';
-  import { localGameApi, type PlayerControl } from './lib/game/httpClient';
+  import { createRoomGameApi, localGameApi, roomApi, type PlayerControl } from './lib/game/httpClient';
   import { formatCabtDeckList } from './lib/game/deckImport';
   import { labelFor } from './lib/game/labels';
   import cardRows from './lib/cabt/cardData.generated.json';
@@ -220,7 +220,31 @@
   let error = $derived(homeMode === 'logs' ? replayStore.error : gameStore.error);
   let busy = $derived(replayMode ? replayStore.loading : gameStore.busy);
   let sessionBusy = $derived(replayMode ? replayStore.loading : busy);
-  let commandApi = $derived<GameCommandApi>(localGameApi);
+  // ---- オンライン対戦(遠隔ルーム) ----
+  const ONLINE_ROOM_STORAGE_KEY = 'cabt.onlineRoom';
+  let onlineRoom = $state<{ code: string; seat: number } | null>(readStoredOnlineRoom());
+  let onlineWaiting = $state(false);
+  let onlineBusy = $state(false);
+  let lastRoomRevision = 0;
+  let onlinePollInFlight = false;
+
+  function readStoredOnlineRoom(): { code: string; seat: number } | null {
+    try {
+      const raw = localStorage.getItem(ONLINE_ROOM_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed.code === 'string' && typeof parsed.seat === 'number' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  let commandApi = $derived<GameCommandApi>(
+    onlineRoom
+      ? createRoomGameApi(onlineRoom.code, (revision) => {
+          lastRoomRevision = Math.max(lastRoomRevision, revision);
+        })
+      : localGameApi,
+  );
   let resolvingPrompt = $derived(gameStore.resolvingPrompt);
   let playingSequence = $derived(gameStore.playingSequence);
   let selectedHand = $derived(selectionStore.selectedHand);
@@ -457,7 +481,20 @@
   let activePlayer = $derived(game?.players[game.activePlayerIndex]);
   let bottomPlayer = $derived(game?.players[viewIndex] ?? game?.players[0]);
   let topPlayer = $derived(game?.players.find((player) => player.index !== bottomPlayer?.index));
-  let currentPrompt = $derived(replayMode ? null : game?.prompts[0]);
+  // オンライン対戦では相手のプロンプト（内容はサーバー側でマスク済み）を自分のUIに
+  // 出さない。相手の手番であることは待機インジケーターで示す。
+  let currentPrompt = $derived.by(() => {
+    if (replayMode) return null;
+    const prompt = game?.prompts[0];
+    if (prompt && onlineRoom && prompt.fields?.playbackOnly !== true && prompt.playerIndex !== onlineRoom.seat) {
+      return null;
+    }
+    return prompt;
+  });
+  let onlineOpponentActing = $derived(
+    !!onlineRoom && !!game && game.ready !== false && game.phase !== 7
+      && (game.prompts[0]?.playerIndex ?? game.activePlayerIndex) !== onlineRoom.seat,
+  );
   let actingPlayerIndex = $derived(currentPrompt?.playerIndex ?? game?.activePlayerIndex ?? 0);
   let actingPlayerIsSelf = $derived(activePlayerControls[actingPlayerIndex] === 'self');
   // Hotseat (self vs self) hides the non-acting hand for privacy; vs AI the human's
@@ -595,7 +632,8 @@
   }
 
   $effect(() => {
-    if (game && (followActive || actingPlayerIsSelf) && !replayMode && !playingSequence) {
+    // オンライン対戦では常に自分の席を手前に固定する（相手手番でも視点を回さない）。
+    if (game && (followActive || actingPlayerIsSelf) && !replayMode && !playingSequence && !onlineRoom) {
       viewSettingsStore.followPlayer(actingPlayerIndex);
     }
   });
@@ -737,6 +775,128 @@
         player2AgentId,
       }),
     );
+  }
+
+  // ---- オンライン対戦: ルームの作成・参加・同期 ----
+
+  function enterOnlineRoom(code: string, seat: number, started: boolean) {
+    gameSessionStore.reset();
+    replayStore.clear();
+    resetSaveReplayStatus();
+    onlineRoom = { code, seat };
+    lastRoomRevision = 0;
+    onlineWaiting = !started;
+    activePlayerControls = seat === 0 ? ['self', 'agent'] : ['agent', 'self'];
+    viewSettingsStore.viewIndex = seat;
+    homeMode = 'play';
+    try {
+      localStorage.setItem(ONLINE_ROOM_STORAGE_KEY, JSON.stringify(onlineRoom));
+    } catch {
+      // 再接続の補助が効かないだけで、対戦は続行できる
+    }
+  }
+
+  function leaveOnlineRoom(notifyServer = true) {
+    if (!onlineRoom) {
+      return;
+    }
+    if (notifyServer) {
+      void roomApi.leave(onlineRoom.code).catch(() => undefined);
+    }
+    onlineRoom = null;
+    onlineWaiting = false;
+    lastRoomRevision = 0;
+    try {
+      localStorage.removeItem(ONLINE_ROOM_STORAGE_KEY);
+    } catch {
+      // no-op
+    }
+  }
+
+  async function createOnlineRoom() {
+    if (onlineBusy) return;
+    const parsed = deckImportStore.parseRemoteDeck();
+    if (!parsed.ok) {
+      gameStore.setError(parsed.error);
+      return;
+    }
+    onlineBusy = true;
+    try {
+      const response = await roomApi.create(parsed.cards);
+      if (!response.ok || !response.code) {
+        gameStore.setError(response.error ?? 'ルームを作成できませんでした。');
+        return;
+      }
+      enterOnlineRoom(response.code, response.seat ?? 0, false);
+    } catch (error) {
+      gameStore.setError(`ルーム作成に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      onlineBusy = false;
+    }
+  }
+
+  async function joinOnlineRoom(code: string) {
+    if (onlineBusy || !code.trim()) return;
+    const parsed = deckImportStore.parseRemoteDeck();
+    if (!parsed.ok) {
+      gameStore.setError(parsed.error);
+      return;
+    }
+    onlineBusy = true;
+    try {
+      const response = await roomApi.join(code, parsed.cards);
+      if (!response.ok) {
+        gameStore.setError(response.error ?? 'ルームに参加できませんでした。');
+        return;
+      }
+      enterOnlineRoom(code.trim().toUpperCase(), response.seat ?? 1, response.started ?? true);
+    } catch (error) {
+      gameStore.setError(`ルーム参加に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      onlineBusy = false;
+    }
+  }
+
+  // 対戦状態のポーリング同期（1.5秒間隔）。自分の操作中はスキップし、
+  // revision の進んだ差分フレームだけを適用する。
+  $effect(() => {
+    if (!onlineRoom) {
+      return;
+    }
+    const room = onlineRoom;
+    const timer = setInterval(() => void pollOnlineRoom(room.code), 1500);
+    void pollOnlineRoom(room.code);
+    return () => clearInterval(timer);
+  });
+
+  async function pollOnlineRoom(code: string) {
+    if (onlinePollInFlight || !onlineRoom || onlineRoom.code !== code) {
+      return;
+    }
+    if (gameStore.busy || gameStore.resolvingPrompt || gameStore.playingSequence) {
+      return;
+    }
+    onlinePollInFlight = true;
+    try {
+      const state = await roomApi.state(code, lastRoomRevision);
+      if (!onlineRoom || onlineRoom.code !== code) {
+        return;
+      }
+      if (!state.ok) {
+        gameStore.setError(state.error ?? 'ルームとの接続が失われました。');
+        leaveOnlineRoom(false);
+        return;
+      }
+      onlineWaiting = !state.started;
+      if (state.started && typeof state.revision === 'number' && state.revision > lastRoomRevision && state.view) {
+        lastRoomRevision = state.revision;
+        await gameSessionStore.applyExternal({ ok: true, view: state.view, sequence: state.sequence });
+      }
+    } catch {
+      // 一時的な通信エラーは次のポーリングで回復する
+    } finally {
+      onlinePollInFlight = false;
+    }
   }
 
   // Restart from the end-game screen without flashing the import screen while the
@@ -913,8 +1073,9 @@
   }
 
   // Auto-save the match log once when a live game finishes (uses the live game, not the reviewed frame).
+  // オンライン対戦の記録はルーム側のエンジンにあるため、ここでは保存しない。
   $effect(() => {
-    if (!replayMode && gameStore.gameFinished && !savingReplay && !saveReplayMessage && !saveReplayError) {
+    if (!replayMode && !onlineRoom && gameStore.gameFinished && !savingReplay && !saveReplayMessage && !saveReplayError) {
       void saveReplay();
     }
   });
@@ -1215,6 +1376,7 @@
     ) {
       return;
     }
+    leaveOnlineRoom();
     gameSessionStore.reset();
     resetSaveReplayStatus();
     zoneViewerStore.close();
@@ -1578,6 +1740,18 @@
         <span>同じ設定で新しい対戦を準備しています。</span>
       </div>
     </section>
+  {:else if !game && onlineRoom}
+    <AppHeader />
+    <section class="replay-loading-screen">
+      <div class="replay-loading-panel">
+        <strong>{onlineWaiting ? '相手の参加を待っています…' : 'オンライン対戦を準備しています…'}</strong>
+        <span>
+          ルームコード: <strong class="online-code">{onlineRoom.code}</strong>
+        </span>
+        <span>このコードを相手に伝えて、同じURLの「オンライン対戦」から参加してもらってください。</span>
+        <button type="button" onclick={() => leaveOnlineRoom()}>中止して戻る</button>
+      </div>
+    </section>
   {:else if !game}
     <AppHeader
       onOpenDeckBuilder={() => (deckBuilderOpen = true)}
@@ -1618,6 +1792,9 @@
           }
         }}
         startGame={startGame}
+        createOnlineRoom={() => void createOnlineRoom()}
+        joinOnlineRoom={(code) => void joinOnlineRoom(code)}
+        {onlineBusy}
         {loadGameLog}
         refreshCatalog={() => void refreshCatalog()}
       />
@@ -1675,7 +1852,7 @@
         stepBack={() => gameStore.stepBack()}
         stepForward={() => gameStore.stepForward()}
         returnToLive={() => gameStore.returnToLive()}
-        canUndo={!replayMode && gameStore.undoCount > 0}
+        canUndo={!replayMode && !onlineRoom && gameStore.undoCount > 0}
         undoMove={() => void undoMove()}
         exportLog={() => void exportLog()}
         exporting={exportingLog}
@@ -1754,6 +1931,13 @@
         >
           選べない時はここから進める →
         </button>
+      {/if}
+
+      {#if onlineOpponentActing}
+        <div
+          class="online-waiting-hint"
+          style="position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:18; padding:8px 16px; border-radius:999px; border:1px solid var(--surface-glass-border); background:var(--surface-glass-bg); color:var(--text-secondary); font-size:13px; font-weight:700; box-shadow:var(--surface-toolbar-shadow); backdrop-filter:blur(var(--backdrop-blur));"
+        >⏳ 相手の操作待ち…（ルーム {onlineRoom?.code}）</div>
       {/if}
 
       {#if error && !gameFinished}

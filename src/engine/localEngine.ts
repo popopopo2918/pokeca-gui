@@ -581,6 +581,11 @@ export class LocalEngineController {
     };
   }
 
+  /** Current view snapshot (used by the online-room layer for turn checks/serving). */
+  currentGameView() {
+    return this.view();
+  }
+
   private view() {
     return cabtObservationToGameView(this.observation, this.logs, this.dataMaps, this.actionTimeline);
   }

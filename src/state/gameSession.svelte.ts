@@ -28,6 +28,14 @@ class GameSessionStore {
     }
   }
 
+  /** Apply a view update that did not come from this client's own command
+   * (e.g., the opponent's move arriving over an online-room poll). */
+  async applyExternal(response: EngineResponse) {
+    const applied = await gameStore.apply(response);
+    this.afterCommand(applied);
+    return applied;
+  }
+
   private afterCommand(response: EngineResponse) {
     promptLifecycleStore.syncPromptScopedState(response.view?.prompts[0] ?? gameStore.game?.prompts[0]);
     promptLifecycleStore.resetCommandSelection(response.view?.prompts.length ?? gameStore.game?.prompts.length ?? 0);
