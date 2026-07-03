@@ -419,10 +419,13 @@
     color-scheme: light;
   }
 
+  /* Some Windows/Chromium environments draw the popup light no matter what
+     color-scheme says, while still honoring the option's `color`. Hard-code a
+     light row + dark text so options are readable under either rendering. */
   select option,
   select optgroup {
-    background: var(--input-bg);
-    color: var(--input-text);
+    background: #ffffff;
+    color: #1d232b;
   }
 
   .preview-button {

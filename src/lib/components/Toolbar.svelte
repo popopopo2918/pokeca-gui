@@ -342,9 +342,11 @@
     font-weight: 700;
   }
 
+  /* Hard-coded light rows: some environments draw the popup light regardless of
+     color-scheme but still honor the option's text color (see ImportScreen). */
   .table-toolbar select option {
-    background: var(--input-bg);
-    color: var(--input-text);
+    background: #ffffff;
+    color: #1d232b;
   }
 
   /* The OS dropdown popup follows the element's color-scheme (see ImportScreen). */
