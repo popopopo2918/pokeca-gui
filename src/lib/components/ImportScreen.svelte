@@ -308,10 +308,13 @@
 <style>
   .import-screen {
     min-height: 100vh;
+    /* body は盤面用に overflow:hidden なので、この画面自身をスクロールさせる */
+    max-height: 100vh;
+    overflow-y: auto;
     display: grid;
     gap: 14px;
     align-content: start;
-    padding: 92px 24px 24px;
+    padding: 92px 24px 32px;
   }
 
   .home-tabs {
@@ -416,7 +419,8 @@
 
   textarea {
     width: 100%;
-    min-height: 54vh;
+    /* オンライン対戦欄が初期表示で見えるよう、少し低めにする（伸ばせる） */
+    min-height: 40vh;
     resize: vertical;
     border-radius: 8px;
     border: 1px solid var(--input-border);
