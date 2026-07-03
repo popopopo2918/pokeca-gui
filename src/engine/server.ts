@@ -57,9 +57,13 @@ function serveStatic(res: http.ServerResponse, pathname: string): void {
 
 // One isolated engine (and Python bridge) per browser client, so several people can
 // play at the same time over a shared URL without clashing on a single session.
+// Each controller holds a Python engine process (~100MB+), so idle ones must be
+// reaped even when no new client ever connects — leaked engines eventually exhaust
+// memory and every later process spawn fails with 0xC0000142.
 const controllers = new Map<string, { controller: LocalEngineController; lastUsed: number }>();
-const MAX_CONTROLLERS = 16;
+const MAX_CONTROLLERS = 8;
 const IDLE_MS = 30 * 60 * 1000;
+setInterval(pruneControllers, 5 * 60 * 1000).unref();
 
 function clientIdOf(req: http.IncomingMessage): string {
   const raw = req.headers['x-cabt-client'];
@@ -291,6 +295,25 @@ const server = http.createServer(async (req, res) => {
     });
   }
 });
+
+// Kill every engine bridge when the server stops, so no Python processes leak.
+function closeAllControllers(): void {
+  for (const [id, entry] of controllers) {
+    try {
+      entry.controller.close();
+    } catch {
+      // best-effort shutdown
+    }
+    controllers.delete(id);
+  }
+}
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+  process.on(signal, () => {
+    closeAllControllers();
+    process.exit(0);
+  });
+}
+process.on('exit', closeAllControllers);
 
 server.listen(port, host, () => {
   process.stdout.write(`[cabt-local-engine] listening on http://${host}:${port}\n`);

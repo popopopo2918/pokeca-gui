@@ -464,7 +464,7 @@ function buildPlayerView(
     name: playerName(index),
     hand: player.hand
       ? player.hand.map((item) => cardToView(item, dataMaps))
-      : Array.from({ length: player.handCount }, () => ({ name: 'Card', fullName: 'Card' })),
+      : Array.from({ length: player.handCount }, () => ({ name: '未公開', fullName: '未公開のカード' })),
     deckCount: player.deckCount,
     discard: player.discard.map((item) => cardToView(item, dataMaps)),
     lostZone: [],
@@ -521,6 +521,15 @@ function pokemonToSlot(
 }
 
 export function cabtCardToView(cardRef: CabtCard, dataMaps: CabtDataMaps): CardView {
+  // id -1 = a card known to exist but never revealed (e.g., drawn by the AI since
+  // its last decision, shown in the reveal-hands AI-testing view).
+  if (cardRef.id < 0) {
+    return {
+      id: -1,
+      name: '未公開',
+      fullName: '未公開のカード',
+    };
+  }
   const data = dataMaps.cardData[cardRef.id];
   if (!data) {
     return {

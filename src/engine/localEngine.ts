@@ -568,13 +568,18 @@ export class LocalEngineController {
         this.knownHands.set(playerIndex, player.hand);
         return player;
       }
+      // The engine only serializes the selecting player's hand, so the reveal-hands
+      // AI-testing view reuses the hand from that player's last decision. Cards gained
+      // since then are unknown and shown as face-down placeholders (id -1); if cards
+      // left the hand unseen we cannot tell which, so the hand stays hidden.
       const knownHand = this.knownHands.get(playerIndex);
-      if (!knownHand || knownHand.length !== player.handCount) {
+      if (!knownHand || knownHand.length > player.handCount) {
         return player;
       }
+      const unknownCount = player.handCount - knownHand.length;
       return {
         ...player,
-        hand: knownHand,
+        hand: [...knownHand, ...Array.from({ length: unknownCount }, () => ({ id: -1 }))],
       };
     });
     return {

@@ -104,6 +104,10 @@
     <button onclick={exportLog} disabled={exporting}>{exporting ? '出力中…' : 'ログ出力'}</button>
   </div>
   <button disabled={switchDisabled} onclick={switchSides}>視点を入れ替え</button>
+  <label class="reveal-hands-toggle" title="AIの性能テスト用：相手（AI）の手札を表向きで表示します（H）">
+    <input type="checkbox" bind:checked={revealHands} />
+    相手の手札を見る（H）
+  </label>
   <button onclick={resetGame}>{resetLabel}</button>
   <details class="display-settings">
     <summary>表示・デバッグ設定</summary>
@@ -122,10 +126,6 @@
       <label>
         <input type="checkbox" bind:checked={autoConfirmPrompts} />
         公開を自動で確認
-      </label>
-      <label title="自作AIのデバッグ用：非公開の手札も表向きで表示（H）">
-        <input type="checkbox" bind:checked={revealHands} />
-        相手の手札を公開（H）
       </label>
       <label>
         <input type="checkbox" bind:checked={debugZones} />
@@ -277,6 +277,17 @@
   .review-controls .undo-btn:not(:disabled) {
     border-color: var(--accent-base);
     color: var(--accent-base);
+  }
+
+  .reveal-hands-toggle {
+    border: 1px solid var(--button-border);
+    border-radius: 5px;
+    padding: 6px 7px;
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
   }
 
   .display-settings {
