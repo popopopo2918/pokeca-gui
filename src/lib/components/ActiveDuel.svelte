@@ -61,7 +61,7 @@
     promptSelectable={isBoardPromptSelectable(topPlayer.active)}
     promptSelected={isBoardPromptSelected(topPlayer.active)}
     slotDelta={boardSlotDelta(topPlayer.active)}
-    onclick={() => clickActive(topPlayer.active)}
+    onclick={(event) => { event.stopPropagation(); clickActive(topPlayer.active); }}
     ondragover={(event) => allowDrop(event, topPlayer.active)}
     ondrop={(event) => dropToSlot(topPlayer.active, event)}
   />
@@ -78,7 +78,7 @@
     promptSelectable={isBoardPromptSelectable(bottomPlayer.active)}
     promptSelected={isBoardPromptSelected(bottomPlayer.active)}
     slotDelta={boardSlotDelta(bottomPlayer.active)}
-    onclick={() => clickActive(bottomPlayer.active)}
+    onclick={(event) => { event.stopPropagation(); clickActive(bottomPlayer.active); }}
     ondragover={(event) => allowDrop(event, bottomPlayer.active)}
     ondrop={(event) => dropToSlot(bottomPlayer.active, event)}
   />

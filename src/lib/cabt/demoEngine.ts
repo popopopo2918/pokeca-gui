@@ -1,4 +1,5 @@
 import { resolveCardImageUrl } from '../game/cardImages';
+import { japaneseCardMoves, japaneseCardName } from './logFormat';
 import {
   SlotType,
   targetFor,
@@ -851,16 +852,20 @@ function isPrizeSelectionPrompt(select: CabtSelectData) {
 }
 
 /** Human-facing message for a CABT select: name the concrete card/ability being decided
- * instead of the generic 「効果を処理する」, so the player knows what they are choosing. */
+ * instead of the generic 「効果を処理する」, so the player knows what they are choosing.
+ * Prefers the Japanese card/ability names over the English engine data. */
 function cabtSelectMessage(select: CabtSelectData, dataMaps: CabtDataMaps, observation: CabtObservation): string {
   if (select.context === CabtSelectContext.ACTIVATE) {
     const source = select.effect ?? select.contextCard;
     const data = source ? dataMaps.cardData[source.id] : undefined;
+    const name = (source ? japaneseCardName(source.id) : '') || data?.name || '';
     if (data && data.cardType === 0 && data.skills?.length) {
-      return `「${data.name}」の特性「${data.skills[0].name}」を使用しますか？`;
+      const jaAbility = source ? japaneseCardMoves(source.id).abilities[0] : undefined;
+      const abilityName = jaAbility?.name || data.skills[0].name.trim();
+      return `「${name}」の特性「${abilityName}」を使用しますか？`;
     }
-    if (data) {
-      return `「${data.name}」の効果を使用しますか？`;
+    if (name) {
+      return `「${name}」の効果を使用しますか？`;
     }
     return '効果を使用しますか？';
   }
@@ -879,8 +884,11 @@ function cabtSelectDetail(select: CabtSelectData, dataMaps: CabtDataMaps): strin
     return undefined;
   }
   const source = select.effect ?? select.contextCard;
-  const data = source ? dataMaps.cardData[source.id] : undefined;
-  return data?.skills?.[0]?.text || undefined;
+  if (!source) {
+    return undefined;
+  }
+  const jaAbility = japaneseCardMoves(source.id).abilities[0];
+  return jaAbility?.text || dataMaps.cardData[source.id]?.skills?.[0]?.text || undefined;
 }
 
 function cabtSelectLabel(context: number) {

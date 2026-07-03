@@ -899,6 +899,12 @@
     if (!selectedHand || !game || !canAct(selectedHand.playerIndex)) {
       return;
     }
+    // One board action per gesture: a click on a slot also bubbles to the board/bench
+    // area handlers, which used to send the same playCard twice — the duplicate then
+    // answered the card effect's follow-up selection by itself.
+    if (gameStore.busy || gameStore.resolvingPrompt) {
+      return;
+    }
     await gameSessionStore.run(() => commandApi.playCard(selectedHand!.playerIndex, selectedHand!.handIndex, target));
   }
 
@@ -951,17 +957,17 @@
   }
 
   async function attack(name: string) {
-    if (!game || !focusedPlayer || !focusedIsActive || !focusedCanAct) return;
+    if (!game || !focusedPlayer || !focusedIsActive || !focusedCanAct || gameStore.busy) return;
     await gameSessionStore.run(() => commandApi.attack(focusedPlayer!.index, name));
   }
 
   async function useAbility(name: string, target: CardTarget) {
-    if (!game || !focusedPlayer || !focusedCanAct) return;
+    if (!game || !focusedPlayer || !focusedCanAct || gameStore.busy) return;
     await gameSessionStore.run(() => commandApi.useAbility(focusedPlayer!.index, name, target));
   }
 
   async function useStadium() {
-    if (!game || !activePlayer || !canAct(activePlayer.index)) return;
+    if (!game || !activePlayer || !canAct(activePlayer.index) || gameStore.busy) return;
     zoneViewerStore.close();
     await gameSessionStore.run(() => commandApi.useStadium(activePlayer.index));
   }
@@ -976,7 +982,7 @@
   }
 
   async function passTurn() {
-    if (!game) return;
+    if (!game || gameStore.busy) return;
     await gameSessionStore.run(() => commandApi.passTurn(game.activePlayerIndex));
   }
 
@@ -994,7 +1000,7 @@
   }
 
   async function retreat(to: number) {
-    if (!game) return;
+    if (!game || gameStore.busy) return;
     retreatSource = null;
     await gameSessionStore.run(() => commandApi.retreat(game.activePlayerIndex, to));
   }

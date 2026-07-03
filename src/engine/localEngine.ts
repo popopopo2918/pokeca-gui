@@ -10,6 +10,7 @@ import {
   CabtLogType,
   CabtOptionType,
   CabtSelectContext,
+  CabtSelectType,
   type CabtAttack,
   type CabtCard,
   type CabtCardData,
@@ -158,18 +159,24 @@ export class LocalEngineController {
         case 'state':
           return this.viewResponse();
         case 'playCard':
+          this.assertMainSelect();
           return await this.selectMatchingOption((option) => this.matchesPlayCardOption(option, command.payload));
         case 'attack':
+          this.assertMainSelect();
           return await this.selectMatchingOption((option) => this.matchesAttackOption(option, command.payload));
         case 'useAbility':
+          this.assertMainSelect();
           return await this.selectMatchingOption((option) => this.matchesAbilityOption(option, command.payload));
         case 'useStadium':
+          this.assertMainSelect();
           return await this.selectMatchingOption((option) => option.area === CabtAreaType.STADIUM);
         case 'concede':
           return { ok: false, error: 'このCABTエンジンでは投了は使用できません。', view: this.view() };
         case 'retreat':
+          this.assertMainSelect();
           return await this.retreat(command.payload);
         case 'passTurn':
+          this.assertMainSelect();
           return await this.selectMatchingOption((option) => option.type === CabtOptionType.END);
         case 'undo':
           return await this.undo(command.payload);
@@ -774,6 +781,17 @@ export class LocalEngineController {
       return player.hand?.[option.index]?.id;
     }
     return undefined;
+  }
+
+  /** Board commands (play/attack/retreat…) are only meaningful on the main-phase
+   * selection. While a card effect's selection is pending, a stray or duplicated board
+   * command must never be pattern-matched against the effect's options — that is how
+   * a doubled click used to "choose" a card the player never picked. */
+  private assertMainSelect(): void {
+    const select = this.observation?.select;
+    if (select && (select.type !== CabtSelectType.MAIN || select.context !== CabtSelectContext.MAIN)) {
+      throw new Error('カード効果の選択中です。表示されている選択肢から選んでください。');
+    }
   }
 
   /** A selection may only resolve the prompt it was made for. Without this check a

@@ -78,7 +78,7 @@
         promptSelectable={isBoardPromptSelectable(slot)}
         promptSelected={isBoardPromptSelected(slot)}
         slotDelta={boardSlotDelta(slot)}
-        onclick={() => clickSlot(slot)}
+        onclick={(event) => { event.stopPropagation(); clickSlot(slot); }}
         ondragover={(event) => allowDrop(event, slot)}
         ondrop={(event) => dropToSlot(slot, event)}
       />

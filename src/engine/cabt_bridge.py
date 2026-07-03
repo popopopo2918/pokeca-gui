@@ -188,7 +188,7 @@ class Session:
         self.set_obs(obs)
         self.active = True
         auto_steps = self.play_ai_turns()
-        return self.snapshot([obs, *auto_steps])
+        return self.snapshot([obs, *auto_steps], include_card_data=True)
 
     def select(self, selection: list[int]) -> dict[str, Any]:
         if not self.active:
@@ -414,8 +414,20 @@ class Session:
         full-information spectator feed, so the reveal-hands AI-testing view can show
         the opponent's real hand at all times. Unavailable once the game has been
         branched by an undo (the spectator feed still describes the abandoned battle).
+
+        The feed re-serializes the whole match history on every call, so it is only
+        consulted when the cached last-seen hand no longer matches a hidden hand's
+        count (the client falls back to that same cache otherwise).
         """
         if not self.active or self.search_id is not None:
+            return None
+        players = (self.obs or {}).get("current", {}).get("players") or []
+        stale = any(
+            player.get("hand") is None
+            and len(self.known_hands.get(index, [])) != player.get("handCount", 0)
+            for index, player in enumerate(players)
+        )
+        if not stale:
             return None
         try:
             raw = visualize_data()
@@ -427,16 +439,20 @@ class Session:
         except Exception:
             return None
 
-    def snapshot(self, auto_steps: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-        return {
+    def snapshot(self, auto_steps: list[dict[str, Any]] | None = None, include_card_data: bool = False) -> dict[str, Any]:
+        response = {
             "ok": True,
             "observation": self.obs,
             "autoSteps": auto_steps or [],
             "undoCount": self.undo_count(),
             "trueHands": self.true_hands(),
-            "cards": [to_jsonable(card) for card in all_card_data()],
-            "attacks": [to_jsonable(attack) for attack in all_attack()],
         }
+        # The full card/attack database is large; ship it once per battle, not on
+        # every command (the client keeps the maps from the start response).
+        if include_card_data:
+            response["cards"] = [to_jsonable(card) for card in all_card_data()]
+            response["attacks"] = [to_jsonable(attack) for attack in all_attack()]
+        return response
 
     def close(self) -> None:
         if self.active:
