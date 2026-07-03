@@ -63,6 +63,8 @@
   }: Props = $props();
 
   let onlineJoinCode = $state('');
+  // ルームはサーバー内にしか存在しないため、ローカル版と共有URL版では別世界になる。
+  const onLocalServer = typeof location !== 'undefined' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost');
 
   let deckOptions = $derived(agents.filter((agent) => !!agent.deckUrl));
   let previewTarget = $state<0 | 1 | null>(null);
@@ -237,6 +239,12 @@
     <div class="online-box">
       <strong>🌐 オンライン対戦（遠隔の相手とリアルタイム）</strong>
       <p>プレイヤー1のデッキを使用します。ルームを作って表示されたコードを相手に伝えるか、相手から聞いたコードで参加してください（相手も同じURLを開きます）。</p>
+      {#if onLocalServer}
+        <p class="online-warning">
+          ⚠ いま開いているのは<strong>このPC専用のローカル版</strong>です。遠隔の相手とはルームがつながりません。
+          2人とも共有URL <strong>https://kahtgf-pokeca-cabt.hf.space</strong> を開いてください。
+        </p>
+      {/if}
       <div class="online-actions">
         <button type="button" disabled={busy || onlineBusy} onclick={createOnlineRoom}>
           {onlineBusy ? '処理中…' : 'ルームを作成'}
@@ -480,6 +488,13 @@
     color: var(--text-secondary);
     font-size: 12px;
     font-weight: 400;
+  }
+
+  .online-box .online-warning {
+    padding: 8px 10px;
+    border: 1px solid var(--warning-base, #b8860b);
+    border-radius: 6px;
+    color: var(--text-primary);
   }
 
   .online-actions {
