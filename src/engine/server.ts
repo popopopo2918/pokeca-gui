@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LocalEngineController, GAME_LOGS_DIR } from './localEngine';
+import { importOfficialDeckCode } from './officialDeck';
 import { WORKSPACES_DIR } from './workspaces';
 import { dataSyncEnabled, pullAll } from './dataStore';
 
@@ -201,6 +202,13 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/local-engine/save-replay') {
     const response = controller.saveReplay();
     writeJson(res, response.ok ? 200 : 400, response);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname.startsWith('/local-engine/deck-code/')) {
+    const code = decodeURIComponent(url.pathname.slice('/local-engine/deck-code/'.length)).replace(/\/+$/, '');
+    const result = await importOfficialDeckCode(code);
+    writeJson(res, result.ok ? 200 : 400, result);
     return;
   }
 

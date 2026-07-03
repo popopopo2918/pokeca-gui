@@ -113,6 +113,31 @@
   let homeMode = $state<HomeMode>(initialReplayMode ? 'logs' : 'play');
   let deckBuilderOpen = $state(initialDeckBuilder);
 
+  let deckCodeBusy = $state(false);
+
+  // 公式サイトのデッキコードをサーバー経由で取得してデッキ欄に反映する。
+  async function loadDeckCode(playerIndex: 0 | 1, code: string) {
+    if (deckCodeBusy) return;
+    deckCodeBusy = true;
+    gameStore.setError('');
+    try {
+      const response = await fetch(`/local-engine/deck-code/${encodeURIComponent(code.trim())}`);
+      const body = await response.json() as { ok: boolean; text?: string; warnings?: string[]; error?: string };
+      if (!body.ok || !body.text) {
+        gameStore.setError(body.error ?? 'デッキコードを読み込めませんでした。');
+        return;
+      }
+      applyBuiltDeck(playerIndex, body.text);
+      if (body.warnings?.length) {
+        gameStore.setError(`デッキコードを読み込みました（注意あり）:\n${body.warnings.join('\n')}`);
+      }
+    } catch (error) {
+      gameStore.setError(`デッキコードの読み込みに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      deckCodeBusy = false;
+    }
+  }
+
   function applyBuiltDeck(playerIndex: 0 | 1, deckText: string) {
     if (playerIndex === 0) {
       deckImportStore.deck1Text = deckText;
@@ -1593,6 +1618,8 @@
           }
         }}
         startGame={startGame}
+        {loadDeckCode}
+        {deckCodeBusy}
         {loadGameLog}
         refreshCatalog={() => void refreshCatalog()}
       />
