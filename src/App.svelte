@@ -3,6 +3,8 @@
   import ActiveFocus from './lib/components/ActiveFocus.svelte';
   import AppHeader from './lib/components/AppHeader.svelte';
   import DeckBuilderScreen from './lib/components/deckbuilder/DeckBuilderScreen.svelte';
+  import { deckBuilderStore } from './state/deckBuilder.svelte';
+  import { deckCountsToText } from './lib/cards/cardCatalog';
   import CardZoom from './lib/components/CardZoom.svelte';
   import AgentManagerModal from './lib/components/AgentManagerModal.svelte';
   import BoardLayer from './lib/components/BoardLayer.svelte';
@@ -239,6 +241,7 @@
   let selectedPlayer2Deck = $derived(agents.find((agent) => agent.id === player2DeckSource && agent.deckUrl));
   onMount(() => {
     const stopThemeSync = viewSettingsStore.startThemeSync();
+    deckBuilderStore.init();
     void initWorkspace();
     if (initialReplayMode) {
       void replayStore.loadSaved();
@@ -354,6 +357,9 @@
     }
   });
   $effect(() => {
+    if (player1DeckSource.startsWith('deck:')) {
+      return; // saved-deck sources are filled by the saved-deck effect below
+    }
     const deckUrl = selectedPlayer1Deck?.deckUrl ?? '';
     if (player1DeckSource === 'import' || !deckUrl) {
       lastLoadedPlayer1DeckSource = '';
@@ -365,6 +371,9 @@
     void loadSelectedDeck(deckUrl, player1DeckSource, 0);
   });
   $effect(() => {
+    if (player2DeckSource.startsWith('deck:')) {
+      return;
+    }
     const deckUrl = selectedPlayer2Deck?.deckUrl ?? '';
     if (player2DeckSource === 'import' || !deckUrl) {
       lastLoadedPlayer2DeckSource = '';
@@ -375,6 +384,37 @@
     }
     void loadSelectedDeck(deckUrl, player2DeckSource, 1);
   });
+  // 「デッキ編成」で保存したデッキを対戦画面の選択肢から直接使えるようにする。
+  $effect(() => {
+    applySavedDeckSource(player1DeckSource, 0);
+  });
+  $effect(() => {
+    applySavedDeckSource(player2DeckSource, 1);
+  });
+
+  function applySavedDeckSource(source: string, playerIndex: 0 | 1) {
+    if (!source.startsWith('deck:')) {
+      return;
+    }
+    const lastLoaded = playerIndex === 0 ? lastLoadedPlayer1DeckSource : lastLoadedPlayer2DeckSource;
+    if (lastLoaded === source) {
+      return;
+    }
+    const deck = deckBuilderStore.library.find((item) => `deck:${item.id}` === source);
+    if (!deck) {
+      if (playerIndex === 0) player1DeckSource = 'import';
+      else player2DeckSource = 'import';
+      return;
+    }
+    const text = deckCountsToText(deck.counts);
+    if (playerIndex === 0) {
+      deckImportStore.deck1Text = text;
+      lastLoadedPlayer1DeckSource = source;
+    } else {
+      deckImportStore.deck2Text = text;
+      lastLoadedPlayer2DeckSource = source;
+    }
+  }
   let zoneViewerOpen = $derived(zoneViewerStore.open);
   let zoneViewerTitle = $derived(zoneViewerStore.title);
   let zoneViewerFaceDown = $derived(zoneViewerStore.faceDown);
@@ -710,10 +750,12 @@
       if (!player2AgentId || !nextAgents.some((agent) => agent.id === player2AgentId)) {
         player2AgentId = nextAgents[0]?.id ?? '';
       }
-      if (player1DeckSource !== 'import' && !nextAgents.some((agent) => agent.id === player1DeckSource && agent.deckUrl)) {
+      if (player1DeckSource !== 'import' && !player1DeckSource.startsWith('deck:')
+        && !nextAgents.some((agent) => agent.id === player1DeckSource && agent.deckUrl)) {
         player1DeckSource = 'import';
       }
-      if (player2DeckSource !== 'import' && !nextAgents.some((agent) => agent.id === player2DeckSource && agent.deckUrl)) {
+      if (player2DeckSource !== 'import' && !player2DeckSource.startsWith('deck:')
+        && !nextAgents.some((agent) => agent.id === player2DeckSource && agent.deckUrl)) {
         player2DeckSource = 'import';
       }
     } catch (error) {
@@ -1531,6 +1573,7 @@
         bind:player1DeckSource
         bind:player2DeckSource
         {agents}
+        savedDecks={deckBuilderStore.library.map((deck) => ({ id: deck.id, name: deck.name }))}
         {gameLogs}
         player1DeckLocked={player1DeckSource !== 'import'}
         player2DeckLocked={player2DeckSource !== 'import'}

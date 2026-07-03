@@ -128,7 +128,9 @@
     border-radius: var(--radius-md);
     font-size: clamp(14px, calc(var(--card-w) * 0.17), 18px);
     font-weight: 800;
-    box-shadow: 0 12px 32px rgba(23, 30, 38, 0.2);
+    /* 盤面のカードや演出の上でも見失わないよう、強めの縁取りと影を付ける */
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 3px rgba(20, 26, 34, 0.55), 0 12px 32px rgba(12, 15, 19, 0.5);
   }
 
   .prompt-warning {

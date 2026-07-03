@@ -1,8 +1,10 @@
 <script lang="ts">
+  import DeckPreviewModal from './DeckPreviewModal.svelte';
   import type { AgentOption, GameLogEntry } from '../home/catalog';
   import type { PlayerControl } from '../game/httpClient';
 
   type HomeMode = 'play' | 'logs';
+  type SavedDeckOption = { id: string; name: string };
 
   type Props = {
     homeMode: HomeMode;
@@ -15,6 +17,7 @@
     player1DeckSource: string;
     player2DeckSource: string;
     agents?: AgentOption[];
+    savedDecks?: SavedDeckOption[];
     gameLogs?: GameLogEntry[];
     player1DeckLocked?: boolean;
     player2DeckLocked?: boolean;
@@ -41,6 +44,7 @@
     player1DeckSource = $bindable(),
     player2DeckSource = $bindable(),
     agents = [],
+    savedDecks = [],
     gameLogs = [],
     player1DeckLocked = false,
     player2DeckLocked = false,
@@ -57,6 +61,7 @@
   }: Props = $props();
 
   let deckOptions = $derived(agents.filter((agent) => !!agent.deckUrl));
+  let previewTarget = $state<0 | 1 | null>(null);
   let startDisabled = $derived(
     busy
       || (player1Control === 'agent' && !player1AgentId)
@@ -87,6 +92,7 @@
       <div class="player-config">
         <span class="deck-label-row">
           プレイヤー1
+          <button type="button" class="preview-button" onclick={() => (previewTarget = 0)}>🃏 画像で確認</button>
         </span>
         <span class="control-tabs" role="tablist" aria-label="プレイヤー1の操作">
           <button
@@ -129,6 +135,13 @@
               aria-label="プレイヤー1のデッキ"
             >
               <option value="import">デッキを貼り付け</option>
+              {#if savedDecks.length}
+                <optgroup label="保存したデッキ（デッキ編成）">
+                  {#each savedDecks as deck}
+                    <option value={`deck:${deck.id}`}>{deck.name}</option>
+                  {/each}
+                </optgroup>
+              {/if}
               {#each deckOptions as agent}
                 <option value={agent.id}>{agent.name}</option>
               {/each}
@@ -146,6 +159,7 @@
       <div class="player-config">
         <span class="deck-label-row">
           プレイヤー2
+          <button type="button" class="preview-button" onclick={() => (previewTarget = 1)}>🃏 画像で確認</button>
         </span>
         <span class="control-tabs" role="tablist" aria-label="プレイヤー2の操作">
           <button
@@ -188,6 +202,13 @@
               aria-label="プレイヤー2のデッキ"
             >
               <option value="import">デッキを貼り付け</option>
+              {#if savedDecks.length}
+                <optgroup label="保存したデッキ（デッキ編成）">
+                  {#each savedDecks as deck}
+                    <option value={`deck:${deck.id}`}>{deck.name}</option>
+                  {/each}
+                </optgroup>
+              {/if}
               {#each deckOptions as agent}
                 <option value={agent.id}>{agent.name}</option>
               {/each}
@@ -208,6 +229,13 @@
     </button>
     {#if error}
       <pre class="error">{error}</pre>
+    {/if}
+    {#if previewTarget !== null}
+      <DeckPreviewModal
+        title={previewTarget === 0 ? 'プレイヤー1のデッキ' : 'プレイヤー2のデッキ'}
+        deckText={previewTarget === 0 ? deck1Text : deck2Text}
+        onClose={() => (previewTarget = null)}
+      />
     {/if}
   {:else}
     <div class="log-toolbar">
@@ -381,6 +409,24 @@
     background: var(--input-bg);
     color: var(--input-text);
     padding: 0 12px;
+  }
+
+  /* The OS-drawn dropdown list keeps the select's text color but not its background,
+     which turned into white-on-white. Pin both so options stay readable. */
+  select option,
+  select optgroup {
+    background: var(--input-bg);
+    color: var(--input-text);
+  }
+
+  .preview-button {
+    border: 1px solid var(--button-border);
+    border-radius: 6px;
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 10px;
   }
 
   .log-toolbar strong {

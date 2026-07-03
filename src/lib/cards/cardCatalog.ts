@@ -184,6 +184,26 @@ export function getCatalogMap(): Map<number, CatalogCard> {
   return new Map(getCatalog().map((card) => [card.id, card]));
 }
 
+/** デッキ編成で保存したデッキ（id→枚数）を、対戦画面に貼り付ける形式のリストへ変換する。 */
+export function deckCountsToText(counts: Record<number, number>): string {
+  const map = getCatalogMap();
+  const sections: Record<CardCategory, string[]> = { pokemon: [], trainer: [], energy: [] };
+  const totals: Record<CardCategory, number> = { pokemon: 0, trainer: 0, energy: 0 };
+  for (const [rawId, count] of Object.entries(counts)) {
+    const card = map.get(Number(rawId));
+    if (!card || !count) {
+      continue;
+    }
+    sections[card.category].push(`${count} ${card.nameJa} ${card.set} ${card.setNumber}`);
+    totals[card.category] += count;
+  }
+  const parts: string[] = [];
+  if (sections.pokemon.length) parts.push(`ポケモン: ${totals.pokemon}`, ...sections.pokemon, '');
+  if (sections.trainer.length) parts.push(`トレーナーズ: ${totals.trainer}`, ...sections.trainer, '');
+  if (sections.energy.length) parts.push(`エネルギー: ${totals.energy}`, ...sections.energy, '');
+  return parts.join('\n').trim();
+}
+
 export type CardFilters = {
   query: string;
   category: CardCategory | 'all';

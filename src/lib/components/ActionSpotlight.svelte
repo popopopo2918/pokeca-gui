@@ -151,7 +151,7 @@
     top: 52px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 30;
+    z-index: 12;
     display: flex;
     align-items: center;
     gap: 10px;
