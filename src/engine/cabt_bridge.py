@@ -23,7 +23,7 @@ SAMPLE_SUBMISSION = Path(
 sys.path.insert(0, str(SAMPLE_SUBMISSION))
 
 from cg.api import all_attack, all_card_data  # noqa: E402
-from cg.game import battle_finish, battle_select, battle_start  # noqa: E402
+from cg.game import battle_finish, battle_select, battle_start, visualize_data  # noqa: E402
 from cg.sim import lib  # noqa: E402
 
 
@@ -407,12 +407,33 @@ class Session:
     def undo_count(self) -> int:
         return sum(1 for entry in self.history if entry["human"] and entry["main"])
 
+    def true_hands(self) -> dict[str, list[dict[str, Any]]] | None:
+        """Both players' actual current hands from the engine's spectator data.
+
+        GetBattleData masks the non-selecting player's hand, but VisualizeData is the
+        full-information spectator feed, so the reveal-hands AI-testing view can show
+        the opponent's real hand at all times. Unavailable once the game has been
+        branched by an undo (the spectator feed still describes the abandoned battle).
+        """
+        if not self.active or self.search_id is not None:
+            return None
+        try:
+            raw = visualize_data()
+            # The feed is a JSON array of every frame since battle start; only the last
+            # frame is needed, so slice it out instead of parsing the whole history.
+            frame = json.loads(raw[raw.rindex('{"select"'):-1])
+            players = (frame.get("current") or {}).get("players") or []
+            return {str(index): (player.get("hand") or []) for index, player in enumerate(players)}
+        except Exception:
+            return None
+
     def snapshot(self, auto_steps: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         return {
             "ok": True,
             "observation": self.obs,
             "autoSteps": auto_steps or [],
             "undoCount": self.undo_count(),
+            "trueHands": self.true_hands(),
             "cards": [to_jsonable(card) for card in all_card_data()],
             "attacks": [to_jsonable(attack) for attack in all_attack()],
         }

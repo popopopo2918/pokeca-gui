@@ -49,6 +49,8 @@ type BridgeResponse = {
   observation?: CabtObservation;
   autoSteps?: CabtObservation[];
   undoCount?: number;
+  /** Both players' actual hands from the engine's spectator feed (null after an undo). */
+  trueHands?: Record<string, CabtCard[]> | null;
   cards?: CabtCardData[];
   attacks?: CabtAttack[];
 };
@@ -126,6 +128,7 @@ export class LocalEngineController {
   private undoCount = 0;
   private pendingRetreatTarget: PendingRetreatTarget | null = null;
   private knownHands = new Map<number, CabtCard[]>();
+  private trueHands: Record<string, CabtCard[]> | null = null;
   private replayFrames: CabtObservation[] = [];
   private replayPlayerLabels: [string, string] = ['Player 1', 'Player 2'];
   private replayModeLabel = 'Self vs Agent';
@@ -527,6 +530,7 @@ export class LocalEngineController {
     }
     this.pendingSequence = [...this.pendingSequence, ...this.appendTimeline(response)];
     this.recordReplayFrames(response);
+    this.trueHands = response.trueHands ?? null;
     this.observation = this.withKnownHands(response.observation ?? null);
     if (typeof response.undoCount === 'number') {
       this.undoCount = response.undoCount;
@@ -568,10 +572,15 @@ export class LocalEngineController {
         this.knownHands.set(playerIndex, player.hand);
         return player;
       }
-      // The engine only serializes the selecting player's hand, so the reveal-hands
-      // AI-testing view reuses the hand from that player's last decision. Cards gained
-      // since then are unknown and shown as face-down placeholders (id -1); if cards
-      // left the hand unseen we cannot tell which, so the hand stays hidden.
+      // GetBattleData only serializes the selecting player's hand. The spectator feed
+      // (trueHands) fills in the other player's actual hand for the reveal-hands
+      // AI-testing view; after an undo that feed is unavailable, so fall back to the
+      // hand seen at that player's last decision, padding unknown draws face-down (-1).
+      const trueHand = this.trueHands?.[String(playerIndex)];
+      if (trueHand && trueHand.length === player.handCount) {
+        this.knownHands.set(playerIndex, trueHand);
+        return { ...player, hand: trueHand };
+      }
       const knownHand = this.knownHands.get(playerIndex);
       if (!knownHand || knownHand.length > player.handCount) {
         return player;
@@ -789,6 +798,7 @@ export class LocalEngineController {
     this.observation = null;
     this.pendingRetreatTarget = null;
     this.knownHands.clear();
+    this.trueHands = null;
     this.actionTimeline = [];
     this.timelineId = 1;
     this.pendingSequence = [];
