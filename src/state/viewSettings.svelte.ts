@@ -18,6 +18,7 @@ type PersistedSettings = {
   animateActions?: boolean;
   showActionSpotlight?: boolean;
   revealHands?: boolean;
+  sortHand?: boolean;
   actionStepDelayMs?: number;
 };
 
@@ -84,6 +85,8 @@ class ViewSettingsStore {
   showActionSpotlight = $state(storedBoolean(storedSettings.showActionSpotlight, true));
   // デバッグ用: 非公開の手札（AI側など）も表向きで表示する。
   revealHands = $state(storedBoolean(storedSettings.revealHands, false));
+  // 自分の手札の表示をポケモン→トレーナーズ→エネルギーの順に整列する（表示のみ）。
+  sortHand = $state(storedBoolean(storedSettings.sortHand, false));
   actionStepDelayMs = $state(storedDelay(storedSettings.actionStepDelayMs, 650));
   viewIndex = $state(0);
   boardTilt = $state(DEFAULT_BOARD_TILT);
@@ -158,6 +161,7 @@ class ViewSettingsStore {
       animateActions: this.animateActions,
       showActionSpotlight: this.showActionSpotlight,
       revealHands: this.revealHands,
+      sortHand: this.sortHand,
       actionStepDelayMs: this.actionStepDelayMs,
     };
     if (typeof window === 'undefined') {

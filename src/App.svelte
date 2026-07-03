@@ -1718,6 +1718,9 @@
             concealed={!revealHands
               && (!isSelfControlled(topPlayer.index)
                 || (bothPlayersSelf && topPlayer.index !== actingPlayerIndex))}
+            sortable={isSelfControlled(topPlayer.index)}
+            sorted={viewSettingsStore.sortHand}
+            onToggleSort={() => (viewSettingsStore.sortHand = !viewSettingsStore.sortHand)}
             onSelect={selectHandCard}
             onDrag={onHandDrag}
             onDragEnd={clearDragState}
@@ -1767,6 +1770,9 @@
             playableIndexes={setupPrompt?.playerIndex === bottomPlayer.index ? setupPlayableIndexes : []}
             placedIndexes={setupPrompt?.playerIndex === bottomPlayer.index ? setupPlacedIndexes : []}
             concealed={!revealHands && !isSelfControlled(bottomPlayer.index)}
+            sortable={isSelfControlled(bottomPlayer.index)}
+            sorted={viewSettingsStore.sortHand}
+            onToggleSort={() => (viewSettingsStore.sortHand = !viewSettingsStore.sortHand)}
             onSelect={selectHandCard}
             onDrag={onHandDrag}
             onDragEnd={clearDragState}

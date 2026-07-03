@@ -9,6 +9,9 @@
     concealed?: boolean;
     playableIndexes?: number[];
     placedIndexes?: number[];
+    sortable?: boolean;
+    sorted?: boolean;
+    onToggleSort?: () => void;
     onSelect: (playerIndex: number, handIndex: number) => void;
     onDrag: (playerIndex: number, handIndex: number, event: DragEvent) => void;
     onDragEnd?: () => void;
@@ -21,10 +24,36 @@
     concealed = false,
     playableIndexes = [],
     placedIndexes = [],
+    sortable = false,
+    sorted = false,
+    onToggleSort = () => {},
     onSelect,
     onDrag,
     onDragEnd = () => {},
   }: Props = $props();
+
+  // Display-only ordering: the engine addresses cards by their real hand index, so
+  // sorting must never touch the data — clicks/drags always report the real index.
+  let displayIndexes = $derived.by(() => {
+    const indexes = player.hand.map((_card, index) => index);
+    if (!sorted || concealed) {
+      return indexes;
+    }
+    return indexes.sort((a, b) =>
+      handSortRank(player.hand[a]) - handSortRank(player.hand[b])
+      || (player.hand[a].name ?? '').localeCompare(player.hand[b].name ?? '', 'ja')
+      || a - b);
+  });
+
+  // ポケモン → トレーナーズ（グッズ・どうぐ・サポート・スタジアム）→ エネルギー
+  function handSortRank(card: PlayerView['hand'][number] | undefined) {
+    if (card?.superType === 'Pokemon') return 0;
+    if (card?.superType === 'Trainer') {
+      return 1 + (typeof card.trainerType === 'number' ? card.trainerType / 10 : 0);
+    }
+    if (card?.superType === 'Energy') return 2;
+    return 3;
+  }
 
   let playableSet = $derived(new Set(playableIndexes));
   let placedSet = $derived(new Set(placedIndexes));
@@ -71,7 +100,16 @@
   data-card-count={player.hand.length}
   onscroll={updateScrollIndicators}
 >
-  {#each player.hand as card, index}
+  {#if sortable && !concealed && player.hand.length > 1}
+    <button
+      class="hand-sort"
+      class:active={sorted}
+      onclick={onToggleSort}
+      title="手札の表示をポケモン→トレーナーズ→エネルギーの順に整列します（表示のみ・ゲームには影響しません）"
+    >整列</button>
+  {/if}
+  {#each displayIndexes as index (index)}
+    {@const card = player.hand[index]}
     {@const cardDisabled = disabled || (hasPlayableFilter && (!playableSet.has(index) || placedSet.has(index)))}
     {#if !placedSet.has(index)}
       <CardTile
@@ -143,6 +181,28 @@
 
   .hand:not(.concealed) :global(.card-tile) {
     flex: 0 0 auto;
+  }
+
+  .hand-sort {
+    position: sticky;
+    left: 4px;
+    z-index: 3;
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 6px 8px;
+    border: 1px solid var(--button-border);
+    border-radius: 999px;
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--surface-toolbar-shadow);
+  }
+
+  .hand-sort.active {
+    border-color: var(--accent-base);
+    color: var(--accent-base);
   }
 
   :global(.debug-zones) .hand {
