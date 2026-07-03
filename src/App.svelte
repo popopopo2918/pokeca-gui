@@ -196,8 +196,14 @@
   let player2Control = $state<PlayerControl>(storedControl(storedMatchSetup.player2Control, 'agent'));
   let player1AgentId = $state(typeof storedMatchSetup.player1AgentId === 'string' ? storedMatchSetup.player1AgentId : '');
   let player2AgentId = $state(typeof storedMatchSetup.player2AgentId === 'string' ? storedMatchSetup.player2AgentId : '');
-  let player1DeckSource = $state(typeof storedMatchSetup.player1DeckSource === 'string' ? storedMatchSetup.player1DeckSource : 'import');
-  let player2DeckSource = $state(typeof storedMatchSetup.player2DeckSource === 'string' ? storedMatchSetup.player2DeckSource : 'import');
+  // 起動時の既定はフーディン（サンプルデッキ）。旧既定の「デッキを貼り付け」も
+  // サンプルに置き換える（貼り付け内容は pasted バックアップに保持され、
+  // 「デッキを貼り付け」を選び直せば戻る）。
+  function storedDeckSource(value: string | undefined): string {
+    return typeof value === 'string' && value && value !== 'import' ? value : 'preset:sample';
+  }
+  let player1DeckSource = $state(storedDeckSource(storedMatchSetup.player1DeckSource));
+  let player2DeckSource = $state(storedDeckSource(storedMatchSetup.player2DeckSource));
   let activePlayerControls = $state<[PlayerControl, PlayerControl]>(['self', 'agent']);
   let lastLoadedPlayer1DeckSource = $state('');
   let lastLoadedPlayer2DeckSource = $state('');
@@ -347,15 +353,38 @@
       document.body.classList.remove('prompt-gallery-page');
     };
   });
+  // AIのペアデッキは「そのAIを選んだ時の初期値」としてだけ適用し、以後は
+  // 自由に別のデッキ（サンプル・保存デッキ・貼り付け）へ変更できる。
+  let lastPairedAgent1 = typeof storedMatchSetup.player1AgentId === 'string' ? storedMatchSetup.player1AgentId : '';
+  let lastPairedAgent2 = typeof storedMatchSetup.player2AgentId === 'string' ? storedMatchSetup.player2AgentId : '';
   $effect(() => {
-    if (player1Control === 'agent' && selectedPlayer1Agent?.deckUrl && player1DeckSource !== selectedPlayer1Agent.id) {
+    if (player1Control === 'agent' && selectedPlayer1Agent?.deckUrl && lastPairedAgent1 !== selectedPlayer1Agent.id) {
+      lastPairedAgent1 = selectedPlayer1Agent.id;
       player1DeckSource = selectedPlayer1Agent.id;
     }
   });
   $effect(() => {
-    if (player2Control === 'agent' && selectedPlayer2Agent?.deckUrl && player2DeckSource !== selectedPlayer2Agent.id) {
+    if (player2Control === 'agent' && selectedPlayer2Agent?.deckUrl && lastPairedAgent2 !== selectedPlayer2Agent.id) {
+      lastPairedAgent2 = selectedPlayer2Agent.id;
       player2DeckSource = selectedPlayer2Agent.id;
     }
+  });
+  // 「デッキを貼り付け」の内容は、他のデッキへ切り替える時に退避し、戻ったら復元する。
+  let prevDeckSource1 = player1DeckSource;
+  let prevDeckSource2 = player2DeckSource;
+  $effect(() => {
+    const source = player1DeckSource;
+    if (source === prevDeckSource1) return;
+    if (prevDeckSource1 === 'import') deckImportStore.pasted1 = deckImportStore.deck1Text;
+    if (source === 'import') deckImportStore.deck1Text = deckImportStore.pasted1;
+    prevDeckSource1 = source;
+  });
+  $effect(() => {
+    const source = player2DeckSource;
+    if (source === prevDeckSource2) return;
+    if (prevDeckSource2 === 'import') deckImportStore.pasted2 = deckImportStore.deck2Text;
+    if (source === 'import') deckImportStore.deck2Text = deckImportStore.pasted2;
+    prevDeckSource2 = source;
   });
   $effect(() => {
     if (player1DeckSource.startsWith('deck:') || player1DeckSource.startsWith('preset:')) {
@@ -772,12 +801,8 @@
   }
 
   async function ensureSelectedDecksLoaded() {
-    const player1Source = forcedDeckSource(player1Control, selectedPlayer1Agent, player1DeckSource);
-    const player2Source = forcedDeckSource(player2Control, selectedPlayer2Agent, player2DeckSource);
-    player1DeckSource = player1Source;
-    player2DeckSource = player2Source;
-    const player1Loaded = await ensureDeckLoaded(player1Source, 0);
-    const player2Loaded = await ensureDeckLoaded(player2Source, 1);
+    const player1Loaded = await ensureDeckLoaded(player1DeckSource, 0);
+    const player2Loaded = await ensureDeckLoaded(player2DeckSource, 1);
     return player1Loaded && player2Loaded;
   }
 
@@ -794,10 +819,6 @@
       return true;
     }
     return loadSelectedDeck(deckUrl, deckSource, playerIndex);
-  }
-
-  function forcedDeckSource(control: PlayerControl, agent: AgentOption | undefined, deckSource: string) {
-    return control === 'agent' && agent?.deckUrl ? agent.id : deckSource;
   }
 
   async function loadSelectedDeck(deckUrl: string, deckSource: string, playerIndex: number) {
@@ -1583,8 +1604,6 @@
         {gameLogs}
         player1DeckLocked={player1DeckSource !== 'import'}
         player2DeckLocked={player2DeckSource !== 'import'}
-        player1AgentHasPairedDeck={player1Control === 'agent' && !!selectedPlayer1Agent?.deckUrl}
-        player2AgentHasPairedDeck={player2Control === 'agent' && !!selectedPlayer2Agent?.deckUrl}
         busy={sessionBusy || player1DeckLoading || player2DeckLoading}
         {catalogBusy}
         {error}

@@ -21,8 +21,6 @@
     gameLogs?: GameLogEntry[];
     player1DeckLocked?: boolean;
     player2DeckLocked?: boolean;
-    player1AgentHasPairedDeck?: boolean;
-    player2AgentHasPairedDeck?: boolean;
     busy?: boolean;
     catalogBusy?: boolean;
     error?: string;
@@ -48,8 +46,6 @@
     gameLogs = [],
     player1DeckLocked = false,
     player2DeckLocked = false,
-    player1AgentHasPairedDeck = false,
-    player2AgentHasPairedDeck = false,
     busy = false,
     catalogBusy = false,
     error = '',
@@ -131,7 +127,7 @@
             <span>デッキ</span>
             <select
               bind:value={player1DeckSource}
-              disabled={busy || player1AgentHasPairedDeck}
+              disabled={busy}
               aria-label="プレイヤー1のデッキ"
             >
               <option value="import">デッキを貼り付け</option>
@@ -199,7 +195,7 @@
             <span>デッキ</span>
             <select
               bind:value={player2DeckSource}
-              disabled={busy || player2AgentHasPairedDeck}
+              disabled={busy}
               aria-label="プレイヤー2のデッキ"
             >
               <option value="import">デッキを貼り付け</option>
