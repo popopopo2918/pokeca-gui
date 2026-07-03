@@ -176,11 +176,11 @@ describe('CABT selection legalization', () => {
     expect(legalizeCabtSelection([0, 4], item)).toEqual([0, 4]);
   });
 
-  it('pads an empty selection up to minCount (mirrors the reference agent)', () => {
+  it('never pads an under-long selection (padding silently picks cards for the player)', () => {
     const item = cabtPrompt({ minCount: 1, maxCount: 1, optionCount: 5 });
-    expect(legalizeCabtSelection([], item)).toEqual([0]);
-    expect(legalizeCabtSelection(null, item)).toEqual([0]);
-    expect(legalizeCabtSelection(true, item)).toEqual([0]);
+    expect(legalizeCabtSelection([], item)).toEqual([]);
+    expect(legalizeCabtSelection(null, item)).toEqual([]);
+    expect(legalizeCabtSelection(true, item)).toEqual([]);
   });
 
   it('keeps an empty selection when the prompt is optional (minCount 0)', () => {

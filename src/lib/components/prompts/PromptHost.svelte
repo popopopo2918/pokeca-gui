@@ -99,6 +99,18 @@
     font-size: 13px;
   }
 
+  :global(.prompt-detail) {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--surface-inset-border);
+    border-radius: var(--radius-md);
+    background: var(--surface-inset-bg);
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    line-height: 1.55;
+    max-width: 52ch;
+  }
+
   :global(.inline-field) {
     display: grid;
     gap: 8px;

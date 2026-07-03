@@ -166,6 +166,7 @@ export class LocalEngineController {
         case 'undo':
           return await this.undo(command.payload);
         case 'resolvePrompt':
+          this.assertPromptId(command.payload?.id);
           return await this.applySelection(this.normalizePromptSelection(command.payload?.result));
         default:
           return { ok: false, error: `未対応のコマンドです: ${command.type}`, view: this.view() };
@@ -736,6 +737,19 @@ export class LocalEngineController {
       return player.hand?.[option.index]?.id;
     }
     return undefined;
+  }
+
+  /** A selection may only resolve the prompt it was made for. Without this check a
+   * delayed/duplicated resolve (double click, race) silently answers the NEXT pending
+   * selection — cards get "chosen" without the player ever choosing them. */
+  private assertPromptId(promptId: unknown): void {
+    if (typeof promptId !== 'number') {
+      return; // older clients don't send the id
+    }
+    const currentPrompt = this.view().prompts[0];
+    if (currentPrompt && currentPrompt.id !== promptId) {
+      throw new Error('この選択はすでに更新されています。最新の画面から選び直してください。');
+    }
   }
 
   private normalizePromptSelection(result: unknown): number[] {

@@ -601,7 +601,7 @@ function buildPrompts(observation: CabtObservation, activePlayerIndex: number, d
         playerId: activePlayerIndex,
         playerIndex: activePlayerIndex,
         supported: true,
-        message: cabtSelectLabel(select.context),
+        message: cabtSelectMessage(select, dataMaps, observation),
         resultSchema: 'optionIndexes',
         fields: {
           cardList: select.option.map((option, optionIndex) => {
@@ -629,10 +629,11 @@ function buildPrompts(observation: CabtObservation, activePlayerIndex: number, d
       playerId: activePlayerIndex,
       playerIndex: activePlayerIndex,
       supported: true,
-      message: cabtSelectLabel(select.context),
+      message: cabtSelectMessage(select, dataMaps, observation),
       resultSchema: 'optionIndex',
       fields: {
         values: select.option.map((option) => optionLabel(option, dataMaps, observation, select.context)),
+        detail: cabtSelectDetail(select, dataMaps),
         options: promptSelectionOptions(select),
         cabtSelect: select,
       },
@@ -838,6 +839,39 @@ function isPrizeSelectionPrompt(select: CabtSelectData) {
       && select.option.length > 0
       && select.option.every((option) => option.type === CabtOptionType.CARD && option.area === CabtAreaType.PRIZE)
     );
+}
+
+/** Human-facing message for a CABT select: name the concrete card/ability being decided
+ * instead of the generic 「効果を処理する」, so the player knows what they are choosing. */
+function cabtSelectMessage(select: CabtSelectData, dataMaps: CabtDataMaps, observation: CabtObservation): string {
+  if (select.context === CabtSelectContext.ACTIVATE) {
+    const source = select.effect ?? select.contextCard;
+    const data = source ? dataMaps.cardData[source.id] : undefined;
+    if (data && data.cardType === 0 && data.skills?.length) {
+      return `「${data.name}」の特性「${data.skills[0].name}」を使用しますか？`;
+    }
+    if (data) {
+      return `「${data.name}」の効果を使用しますか？`;
+    }
+    return '効果を使用しますか？';
+  }
+  if (select.context === CabtSelectContext.DRAW_COUNT && (observation.current?.turn ?? 0) === 0) {
+    return '相手のマリガンにより、カードを追加で引けます（引く枚数を選ぶ）';
+  }
+  if (select.context === CabtSelectContext.MULLIGAN) {
+    return '手札を引き直しますか？（マリガン）';
+  }
+  return cabtSelectLabel(select.context);
+}
+
+/** Supplementary text (e.g., the ability's own text) shown under the prompt title. */
+function cabtSelectDetail(select: CabtSelectData, dataMaps: CabtDataMaps): string | undefined {
+  if (select.context !== CabtSelectContext.ACTIVATE) {
+    return undefined;
+  }
+  const source = select.effect ?? select.contextCard;
+  const data = source ? dataMaps.cardData[source.id] : undefined;
+  return data?.skills?.[0]?.text || undefined;
 }
 
 function cabtSelectLabel(context: number) {

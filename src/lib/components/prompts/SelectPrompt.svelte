@@ -103,6 +103,9 @@
       </div>
     </div>
   {:else if values.length}
+    {#if typeof prompt.fields.detail === 'string' && prompt.fields.detail}
+      <p class="prompt-detail">{prompt.fields.detail}</p>
+    {/if}
     <div class="prompt-grid">
       {#each values as value, index}
         <button disabled={resolving} onclick={() => onresolve(index)}>{labelFor(value)}</button>

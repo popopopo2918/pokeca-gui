@@ -384,6 +384,9 @@
   let currentPrompt = $derived(replayMode ? null : game?.prompts[0]);
   let actingPlayerIndex = $derived(currentPrompt?.playerIndex ?? game?.activePlayerIndex ?? 0);
   let actingPlayerIsSelf = $derived(activePlayerControls[actingPlayerIndex] === 'self');
+  // Hotseat (self vs self) hides the non-acting hand for privacy; vs AI the human's
+  // own hand must stay visible even while the opponent is taking their turn.
+  let bothPlayersSelf = $derived(activePlayerControls[0] === 'self' && activePlayerControls[1] === 'self');
   let modeLabel = $derived(`${controlLabel(activePlayerControls[0])} vs ${controlLabel(activePlayerControls[1])}`);
   let boardTargetPrompt = $derived(currentPrompt?.className === 'ChoosePokemonPrompt' ? currentPrompt : null);
   let attachPrompt = $derived(currentPrompt?.className === 'AttachEnergyPrompt' ? currentPrompt : null);
@@ -1021,6 +1024,9 @@
       gameStore.confirmPlaybackPrompt();
       return;
     }
+    // One resolve at a time: a duplicated call (double click / stray event) must never
+    // reach the engine, where it would be applied to the NEXT pending selection.
+    if (gameStore.resolvingPrompt || gameStore.busy) return;
     // The native CABT engine rejects (HTTP 400 → frozen board) any selection whose length is
     // outside [minCount, maxCount] or holds out-of-range / duplicate indexes. Coerce every
     // selection to an engine-legal one before sending so the game can never get stuck.
@@ -1709,7 +1715,9 @@
             disabled={!isSelfControlled(topPlayer.index) || (!canAct(topPlayer.index) && setupPrompt?.playerIndex !== topPlayer.index)}
             playableIndexes={setupPrompt?.playerIndex === topPlayer.index ? setupPlayableIndexes : []}
             placedIndexes={setupPrompt?.playerIndex === topPlayer.index ? setupPlacedIndexes : []}
-            concealed={!revealHands && (topPlayer.index !== actingPlayerIndex || !isSelfControlled(topPlayer.index))}
+            concealed={!revealHands
+              && (!isSelfControlled(topPlayer.index)
+                || (bothPlayersSelf && topPlayer.index !== actingPlayerIndex))}
             onSelect={selectHandCard}
             onDrag={onHandDrag}
             onDragEnd={clearDragState}

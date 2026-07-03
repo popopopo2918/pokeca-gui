@@ -287,10 +287,11 @@ function selectionLimits(prompt: Pick<PromptView, 'fields'> | null | undefined, 
 
 /**
  * Coerce an arbitrary prompt result into a selection the CABT engine will accept: distinct,
- * in-range option indexes whose count sits within [min, max]. Over-long selections are trimmed
- * and under-long ones are padded with the lowest unused indexes (mirroring the reference agent).
- * Returns `null` when the prompt is not a CABT selection or the value is not selection-shaped, so
- * the caller can forward the original value untouched.
+ * in-range option indexes trimmed to at most `max`. A selection is NEVER padded: inventing
+ * indexes the player did not pick silently answers the prompt with the first card
+ * (「勝手に選ばれる」). An under-long selection is forwarded as-is so the engine rejects it
+ * with a visible error instead. Returns `null` when the prompt is not a CABT selection or the
+ * value is not selection-shaped, so the caller can forward the original value untouched.
  */
 export function legalizeCabtSelection(value: unknown, prompt: Pick<PromptView, 'fields'> | null | undefined): number[] | null {
   const select = cabtSelectFromPrompt(prompt);
@@ -301,7 +302,7 @@ export function legalizeCabtSelection(value: unknown, prompt: Pick<PromptView, '
   if (normalized === null) {
     return null;
   }
-  const { optionCount, min, max } = selectionLimits(prompt, select);
+  const { optionCount, max } = selectionLimits(prompt, select);
   const seen = new Set<number>();
   const cleaned: number[] = [];
   for (const index of normalized) {
@@ -310,14 +311,7 @@ export function legalizeCabtSelection(value: unknown, prompt: Pick<PromptView, '
       cleaned.push(index);
     }
   }
-  const result = cleaned.slice(0, max);
-  for (let index = 0; result.length < min && index < optionCount; index += 1) {
-    if (!seen.has(index)) {
-      seen.add(index);
-      result.push(index);
-    }
-  }
-  return result;
+  return cleaned.slice(0, max);
 }
 
 /**
