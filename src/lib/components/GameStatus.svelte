@@ -6,6 +6,7 @@
     resultLabel?: string;
     modeLabel?: string;
     gameFinished?: boolean;
+    thinking?: boolean;
   };
 
   let {
@@ -15,6 +16,7 @@
     resultLabel = '',
     modeLabel = '',
     gameFinished = false,
+    thinking = false,
   }: Props = $props();
 </script>
 
@@ -26,6 +28,9 @@
   <span>ターン {turn}</span>
   {#if !gameFinished}
     <span>{activePlayerName}</span>
+  {/if}
+  {#if thinking && !gameFinished}
+    <span class="thinking" role="status">AI思考中…</span>
   {/if}
 </div>
 
@@ -57,5 +62,22 @@
   .mode {
     color: var(--accent-strong);
     font-weight: 900;
+  }
+
+  .thinking {
+    color: var(--text-primary);
+    font-weight: 700;
+    animation: thinking-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes thinking-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .thinking {
+      animation: none;
+    }
   }
 </style>

@@ -3,6 +3,10 @@
     resultLabel: string;
     turn: number;
     onconfirm: () => void;
+    onrematch?: () => void;
+    onrematchSwapped?: () => void;
+    rematchDisabled?: boolean;
+    recordLabel?: string;
     onsave?: () => void;
     saveDisabled?: boolean;
     saveMessage?: string;
@@ -14,6 +18,10 @@
     resultLabel,
     turn,
     onconfirm,
+    onrematch,
+    onrematchSwapped,
+    rematchDisabled = false,
+    recordLabel = '',
     onsave,
     saveDisabled = false,
     saveMessage = '',
@@ -28,14 +36,27 @@
       <span>対戦終了</span>
       <h2 id="end-game-title">{resultLabel}</h2>
       <p>{turn} ターンで終了</p>
+      {#if recordLabel}
+        <p class="session-record">{recordLabel}</p>
+      {/if}
     </div>
     <div class="actions">
+      {#if onrematch}
+        <button type="button" onclick={onrematch} disabled={rematchDisabled}>
+          同じデッキでもう一度
+        </button>
+      {/if}
+      {#if onrematchSwapped}
+        <button class="secondary" type="button" onclick={onrematchSwapped} disabled={rematchDisabled} title="プレイヤー1と2のデッキ・操作を入れ替えて再戦">
+          先後を入れ替えて再戦
+        </button>
+      {/if}
       {#if onsave}
         <button class="secondary" type="button" onclick={onsave} disabled={saveDisabled || saving}>
           {saving ? '保存中…' : saveMessage ? '保存しました' : '対戦を保存'}
         </button>
       {/if}
-      <button type="button" onclick={onconfirm}>メイン画面へ戻る</button>
+      <button class={onrematch ? 'secondary' : ''} type="button" onclick={onconfirm}>メイン画面へ戻る</button>
     </div>
     {#if saveMessage}
       <p class="save-status" role="status">{saveMessage}</p>
@@ -89,6 +110,11 @@
     margin: 8px 0 0;
     color: var(--text-muted);
     font-size: 14px;
+  }
+
+  .end-game-panel p.session-record {
+    color: var(--text-secondary);
+    font-weight: 700;
   }
 
   .actions {

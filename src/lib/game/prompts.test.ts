@@ -10,6 +10,7 @@ import {
   legalizeCabtSelection,
   promptBlockedIndexes,
   promptBlockedTargets,
+  promptHasInteractiveUi,
   promptInstanceKey,
   promptOptions,
   prunePromptIndexes,
@@ -221,6 +222,27 @@ describe('CABT selection legalization', () => {
     expect(firstLegalCabtSelection(cabtPrompt({ minCount: 0, maxCount: 2, optionCount: 5 }))).toEqual([0, 1]);
     expect(firstLegalCabtSelection(cabtPrompt({ minCount: 1, maxCount: 1, optionCount: 5 }))).toEqual([0]);
     expect(firstLegalCabtSelection(prompt('ConfirmPrompt'))).toEqual([]);
+  });
+
+  it('hides the advance escape hatch when a dedicated picker UI is available', () => {
+    // 山札サーチ（ポケパッド・トウコ等）の選択はプレイヤーが必ず自分で行う。
+    const deckSearch = prompt('ChooseCardsPrompt', {
+      cardList: [{ name: 'Dunsparce', fullName: 'Dunsparce', index: 0 }],
+      options: { min: 0, max: 1 },
+    });
+    expect(promptHasInteractiveUi(deckSearch)).toBe(true);
+
+    // 候補が空の ChooseCardsPrompt は操作不能なので脱出用ボタンを残す。
+    expect(promptHasInteractiveUi(prompt('ChooseCardsPrompt', { cardList: [] }))).toBe(false);
+
+    // ボタン式のプロンプトは常に操作可能。
+    expect(promptHasInteractiveUi(prompt('ConfirmPrompt'))).toBe(true);
+    expect(promptHasInteractiveUi(prompt('SelectPrompt', { values: [] }))).toBe(true);
+
+    // 盤面クリック型・未知クラスは脱出用ボタンを残す。
+    expect(promptHasInteractiveUi(prompt('ChoosePokemonPrompt'))).toBe(false);
+    expect(promptHasInteractiveUi(prompt('PutDamagePrompt'))).toBe(false);
+    expect(promptHasInteractiveUi(undefined)).toBe(false);
   });
 });
 

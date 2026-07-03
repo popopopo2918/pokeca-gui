@@ -121,6 +121,45 @@ export function isForcedAutoResolvePrompt(prompt: PromptView | undefined): boole
     || (prompt?.className === 'ConfirmPrompt' && prompt.message === 'GO_FIRST');
 }
 
+/**
+ * True when PromptHost renders a usable, player-operable UI for this prompt.
+ * The safety-advance button ("選べない時はここから進める") is only shown when this is
+ * false, so a player is never offered a silent auto-pick next to a working picker —
+ * deck-search choices (ポケパッド・トウコ等) must always be made by the player.
+ */
+export function promptHasInteractiveUi(prompt: PromptView | null | undefined): boolean {
+  if (!prompt) {
+    return false;
+  }
+  switch (prompt.className) {
+    case 'AlertPrompt':
+    case 'ShowCardsPrompt':
+    case 'ConfirmCardsPrompt':
+    case 'ShowMulliganPrompt':
+    case 'WaitPrompt':
+    case 'ConfirmPrompt':
+    case 'CoinFlipPrompt':
+    case 'ChooseAttackPrompt':
+    case 'SelectPrompt':
+    case 'SelectOptionPrompt':
+      return true;
+    case 'ChooseCardsPrompt':
+    case 'ChooseEnergyPrompt':
+    case 'DiscardEnergyPrompt':
+    case 'MoveEnergyPrompt':
+    case 'AttachEnergyPrompt':
+      return extractPromptCards(prompt.fields).length > 0;
+    case 'ChoosePrizePrompt': {
+      const prizes = prompt.fields.prizes;
+      return Array.isArray(prizes) && prizes.length > 0;
+    }
+    default:
+      // Board-interaction prompts (PutDamage / MoveDamage / ChoosePokemon など) は盤面クリックが
+      // 塞がる局面が過去にあったため、脱出用ボタンを残す。未知のクラスも同様。
+      return false;
+  }
+}
+
 export type PromptPlacement = 'center' | 'board' | 'zone';
 
 const BOARD_PROMPT_CLASS_NAMES: ReadonlySet<string> = new Set<string>([

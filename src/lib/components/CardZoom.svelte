@@ -29,9 +29,9 @@
 <style>
   .card-zoom {
     position: fixed;
-    top: 16px;
+    top: 52px;
     left: 16px;
-    z-index: 30;
+    z-index: 28;
     width: clamp(160px, 17vw, 260px);
     padding: 8px;
     border-radius: var(--radius-lg);

@@ -8,6 +8,41 @@ export type ThemePreference = ResolvedTheme | 'system';
 
 const THEME_STORAGE_KEY = 'cabt.theme';
 const THEME_QUERY = '(prefers-color-scheme: dark)';
+const SETTINGS_STORAGE_KEY = 'cabt.viewSettings';
+
+// Toolbar toggles that survive a reload so testers do not re-check them every session.
+type PersistedSettings = {
+  followActive?: boolean;
+  autoConfirmPrompts?: boolean;
+  showLogs?: boolean;
+  animateActions?: boolean;
+  showActionSpotlight?: boolean;
+  revealHands?: boolean;
+  actionStepDelayMs?: number;
+};
+
+function readStoredSettings(): PersistedSettings {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return typeof parsed === 'object' && parsed !== null ? (parsed as PersistedSettings) : {};
+  } catch {
+    return {};
+  }
+}
+
+const storedSettings = readStoredSettings();
+
+function storedBoolean(value: boolean | undefined, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function storedDelay(value: number | undefined, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.min(2500, Math.max(50, value)) : fallback;
+}
 
 function isResolvedTheme(theme: string | null): theme is ResolvedTheme {
   return theme === 'light' || theme === 'dark';
@@ -39,15 +74,17 @@ function readSystemTheme(): ResolvedTheme {
 }
 
 class ViewSettingsStore {
-  followActive = $state(true);
-  autoConfirmPrompts = $state(true);
+  followActive = $state(storedBoolean(storedSettings.followActive, true));
+  autoConfirmPrompts = $state(storedBoolean(storedSettings.autoConfirmPrompts, true));
   debugZones = $state(false);
-  showLogs = $state(false);
+  showLogs = $state(storedBoolean(storedSettings.showLogs, false));
   // 既定でオン: 相手(AI)の手を1手ずつ再生して見せる。
-  animateActions = $state(true);
+  animateActions = $state(storedBoolean(storedSettings.animateActions, true));
   // アクションのスポットライト表示（発動カードのポップ）。オフで非表示にできる。
-  showActionSpotlight = $state(true);
-  actionStepDelayMs = $state(650);
+  showActionSpotlight = $state(storedBoolean(storedSettings.showActionSpotlight, true));
+  // デバッグ用: 非公開の手札（AI側など）も表向きで表示する。
+  revealHands = $state(storedBoolean(storedSettings.revealHands, false));
+  actionStepDelayMs = $state(storedDelay(storedSettings.actionStepDelayMs, 650));
   viewIndex = $state(0);
   boardTilt = $state(DEFAULT_BOARD_TILT);
   boardPerspective = $state(DEFAULT_BOARD_PERSPECTIVE);
@@ -110,6 +147,27 @@ class ViewSettingsStore {
       media?.removeEventListener('change', handleMediaChange);
       window.removeEventListener('storage', handleStorage);
     };
+  }
+
+  // Reads every persisted field so a caller can run this inside $effect and re-save on change.
+  persistSettings() {
+    const snapshot: PersistedSettings = {
+      followActive: this.followActive,
+      autoConfirmPrompts: this.autoConfirmPrompts,
+      showLogs: this.showLogs,
+      animateActions: this.animateActions,
+      showActionSpotlight: this.showActionSpotlight,
+      revealHands: this.revealHands,
+      actionStepDelayMs: this.actionStepDelayMs,
+    };
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // Settings still apply for the current session when storage is unavailable.
+    }
   }
 
   resetPerspective() {

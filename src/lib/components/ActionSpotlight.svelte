@@ -140,7 +140,6 @@
         <span class="spot-kind">{kindLabel}</span>
         {#if actorLabel}<span class="spot-actor">{actorLabel}</span>{/if}
         <strong class="spot-name">{cardName}</strong>
-        {#if current.message}<span class="spot-message">{current.message}</span>{/if}
       </div>
     </div>
   {/key}
@@ -149,15 +148,16 @@
 <style>
   .action-spotlight {
     position: fixed;
-    top: 64px;
-    left: 16px;
+    top: 52px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 30;
     display: flex;
     align-items: center;
-    gap: 14px;
-    max-width: min(92vw, 460px);
-    padding: 12px 16px;
-    border-radius: 16px;
+    gap: 10px;
+    max-width: min(92vw, 380px);
+    padding: 8px 12px;
+    border-radius: 999px;
     border: 1px solid var(--button-border);
     background: var(--surface-glass-bg);
     box-shadow: var(--surface-toolbar-shadow);
@@ -167,57 +167,54 @@
   }
 
   .spot-card {
-    width: 92px;
+    width: 56px;
     height: auto;
-    border-radius: 8px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-    animation: spotlight-card 260ms ease-out;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: spotlight-card 240ms ease-out;
   }
 
   .spot-text {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     min-width: 0;
   }
 
   .spot-kind {
     align-self: flex-start;
-    padding: 2px 10px;
+    padding: 1px 8px;
     border-radius: 999px;
     background: var(--button-primary-bg);
     color: var(--button-primary-text);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 900;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
   }
 
   .spot-actor {
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
   }
 
   .spot-name {
     color: var(--text-primary);
-    font-size: 17px;
+    font-size: 14px;
     font-weight: 900;
     line-height: 1.2;
-  }
-
-  .spot-message {
-    color: var(--text-secondary);
-    font-size: 12px;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   @keyframes spotlight-pop {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translate(-50%, -8px); }
+    to { opacity: 1; transform: translateX(-50%); }
   }
 
   @keyframes spotlight-card {
-    from { opacity: 0; transform: scale(0.82) rotate(-3deg); }
+    from { opacity: 0; transform: scale(0.86) rotate(-2deg); }
     to { opacity: 1; transform: scale(1) rotate(0); }
   }
 
