@@ -1,5 +1,6 @@
 <script lang="ts">
   import DeckPreviewModal from './DeckPreviewModal.svelte';
+  import { spotlight } from '../actions/spotlight';
   import { TOURNAMENT_DECKS } from '../game/presetDecks';
   import { resolveDeckTextEntries } from '../cards/cardCatalog';
   import type { AgentOption, GameLogEntry } from '../home/catalog';
@@ -100,17 +101,6 @@
 
   function logPlayerLabel(log: GameLogEntry): string {
     return log.players?.length ? log.players.join(' vs ') : 'AI vs AI';
-  }
-
-  // taste-skill実験: カーソル位置で枠がほのかに光る（表示のみ・挙動不変）
-  function spotlight(node: HTMLElement) {
-    const onMove = (event: MouseEvent) => {
-      const rect = node.getBoundingClientRect();
-      node.style.setProperty('--sx', `${event.clientX - rect.left}px`);
-      node.style.setProperty('--sy', `${event.clientY - rect.top}px`);
-    };
-    node.addEventListener('mousemove', onMove);
-    return { destroy: () => node.removeEventListener('mousemove', onMove) };
   }
 
   function setPlayerControl(playerIndex: 0 | 1, control: PlayerControl) {
@@ -329,7 +319,7 @@
       {:else}
         <div class="log-grid">
           {#each gameLogs as log}
-            <button type="button" class="log-card" disabled={busy} onclick={() => loadGameLog(log)}>
+            <button type="button" class="log-card" use:spotlight disabled={busy} onclick={() => loadGameLog(log)}>
               <span class="log-eyebrow">リプレイ</span>
               <strong class="log-name">{log.name}</strong>
               <span class="log-players">
@@ -833,6 +823,19 @@
   }
 
   .log-card:hover:not(:disabled)::before {
+    opacity: 1;
+  }
+
+  .log-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    background: radial-gradient(200px circle at var(--sx, 50%) var(--sy, 50%), rgba(77, 141, 255, 0.1), transparent 65%);
+  }
+  .log-card:hover:not(:disabled)::after {
     opacity: 1;
   }
 

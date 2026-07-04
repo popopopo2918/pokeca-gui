@@ -188,6 +188,37 @@
   --surface-glass-shadow: 0 16px 40px rgba(3, 8, 22, 0.55);
 }
 
+/* ---- デッキ編成にも同じ監査を適用 ---- */
+[data-skin='broadcast'] .screen::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+[data-skin='broadcast'] .screen .bar { animation: taste-rise 0.45s 0s both; }
+[data-skin='broadcast'] .screen .left { animation: taste-rise 0.45s 0.07s both; }
+[data-skin='broadcast'] .screen .preview-pane { animation: taste-rise 0.45s 0.13s both; }
+[data-skin='broadcast'] .screen .right { animation: taste-rise 0.45s 0.19s both; }
+
+/* ---- モーダル・ダイアログ＝ポップイン（scale 0.98→1 + フェード） ---- */
+@keyframes taste-pop {
+  from { opacity: 0; transform: scale(0.98) translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+[data-skin='broadcast'] :is(.backdrop .modal, .concede-box, .deck-preview, .replay-loading-panel) {
+  animation: taste-pop 0.22s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='broadcast'] .screen :is(.bar, .left, .preview-pane, .right),
+  [data-skin='broadcast'] :is(.backdrop .modal, .concede-box, .deck-preview, .replay-loading-panel) {
+    animation: none;
+  }
+}
+
 /* ============================================================
    面の輪郭＝エッジライト
    すべての「浮いているパネル」は、均一な1px灰色線ではなく

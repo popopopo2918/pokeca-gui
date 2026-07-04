@@ -5,6 +5,7 @@
   import DeckLibrary from './DeckLibrary.svelte';
   import CardDetailModal from './CardDetailModal.svelte';
   import Logo from '../Logo.svelte';
+  import { spotlight } from '../../actions/spotlight';
   import { cardPreviewStore } from '../../../state/cardPreview.svelte';
   import { japaneseCardName } from '../../cabt/logFormat';
   import { getCatalog, resolveDeckTextEntries, type CatalogCard } from '../../cards/cardCatalog';
@@ -129,7 +130,7 @@
   {/if}
 
   <div class="body">
-    <section class="left">
+    <section class="left" use:spotlight>
       <CardGallery
         {cards}
         countOf={(id) => deckBuilderStore.countOf(id)}
@@ -153,7 +154,7 @@
       {/if}
     </aside>
 
-    <aside class="right">
+    <aside class="right" use:spotlight>
       <div class="tabs">
         <button class:active={tab === 'deck'} onclick={() => (tab = 'deck')}>デッキ</button>
         <button class:active={tab === 'library'} onclick={() => (tab = 'library')}>
@@ -380,6 +381,25 @@
     border-radius: var(--radius-lg);
     background: var(--surface-glass-bg);
     box-shadow: var(--surface-glass-shadow);
+  }
+  .left,
+  .right {
+    position: relative;
+  }
+  .left::after,
+  .right::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    background: radial-gradient(280px circle at var(--sx, 50%) var(--sy, 50%), rgba(77, 141, 255, 0.08), transparent 65%);
+  }
+  .left:hover::after,
+  .right:hover::after {
+    opacity: 1;
   }
   .left { display: flex; }
   .right { display: flex; flex-direction: column; }
