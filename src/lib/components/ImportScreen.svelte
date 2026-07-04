@@ -102,6 +102,17 @@
     return log.players?.length ? log.players.join(' vs ') : 'AI vs AI';
   }
 
+  // taste-skill実験: カーソル位置で枠がほのかに光る（表示のみ・挙動不変）
+  function spotlight(node: HTMLElement) {
+    const onMove = (event: MouseEvent) => {
+      const rect = node.getBoundingClientRect();
+      node.style.setProperty('--sx', `${event.clientX - rect.left}px`);
+      node.style.setProperty('--sy', `${event.clientY - rect.top}px`);
+    };
+    node.addEventListener('mousemove', onMove);
+    return { destroy: () => node.removeEventListener('mousemove', onMove) };
+  }
+
   function setPlayerControl(playerIndex: 0 | 1, control: PlayerControl) {
     if (playerIndex === 0) {
       player1Control = control;
@@ -127,7 +138,7 @@
     {#if homeMode === 'play'}
       <div class="setup-grid">
         <!-- ============ プレイヤー1 ============ -->
-        <article class="player-card">
+        <article class="player-card" use:spotlight>
           <header>
             <span class="player-tag p1">PLAYER 1</span>
             <span class="control-tabs" role="tablist" aria-label="プレイヤー1の操作">
@@ -193,7 +204,7 @@
         <div class="vs" aria-hidden="true"><span>VS</span></div>
 
         <!-- ============ プレイヤー2 ============ -->
-        <article class="player-card">
+        <article class="player-card" use:spotlight>
           <header>
             <span class="player-tag p2">PLAYER 2</span>
             <span class="control-tabs" role="tablist" aria-label="プレイヤー2の操作">
@@ -261,7 +272,7 @@
         {busy ? '開始中…' : '対戦開始'}
       </button>
 
-      <article class="online-card">
+      <article class="online-card" use:spotlight>
         <header>
           <strong>🌐 オンライン対戦</strong>
           <span>遠隔の相手とリアルタイム — プレイヤー1のデッキを使用します</span>
@@ -413,6 +424,7 @@
   }
 
   .player-card {
+    position: relative;
     display: grid;
     gap: 14px;
     align-content: start;
@@ -421,6 +433,22 @@
     border: 1px solid var(--surface-glass-border);
     background: var(--surface-glass-bg);
     box-shadow: var(--surface-glass-shadow);
+  }
+
+  .player-card::after,
+  .online-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    background: radial-gradient(240px circle at var(--sx, 50%) var(--sy, 50%), rgba(77, 141, 255, 0.12), transparent 65%);
+  }
+  .player-card:hover::after,
+  .online-card:hover::after {
+    opacity: 1;
   }
 
   .player-card header {
@@ -654,6 +682,7 @@
   }
 
   .online-card {
+    position: relative;
     display: grid;
     gap: 12px;
     padding: 16px 18px;

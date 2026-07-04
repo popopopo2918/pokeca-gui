@@ -150,6 +150,45 @@
 }
 
 /* ============================================================
+   taste-skill 実験（ローカル検証・メニュー画面のみ）
+   1) 粒状ノイズでフラットさを破る 2) 青で着色した影
+   3) パネルの段差入り登場アニメ 4) スポットライト枠は ImportScreen 側
+   ============================================================ */
+[data-skin='broadcast'] .import-screen::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+[data-skin='broadcast'] .import-screen h2 {
+  text-wrap: balance;
+}
+
+@keyframes taste-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+[data-skin='broadcast'] .import-screen .page-head { animation: taste-rise 0.45s 0s both; }
+[data-skin='broadcast'] .import-screen .setup-grid { animation: taste-rise 0.45s 0.07s both; }
+[data-skin='broadcast'] .import-screen .primary.start { animation: taste-rise 0.45s 0.15s both; }
+[data-skin='broadcast'] .import-screen .online-card { animation: taste-rise 0.45s 0.22s both; }
+[data-skin='broadcast'] .import-screen .log-grid { animation: taste-rise 0.45s 0.07s both; }
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='broadcast'] .import-screen :is(.page-head, .setup-grid, .primary.start, .online-card, .log-grid) {
+    animation: none;
+  }
+}
+
+/* 影は真っ黒でなく背景の紺で着色（redesign-skill: tinted shadows） */
+[data-skin='broadcast'] {
+  --surface-glass-shadow: 0 16px 40px rgba(3, 8, 22, 0.55);
+}
+
+/* ============================================================
    面の輪郭＝エッジライト
    すべての「浮いているパネル」は、均一な1px灰色線ではなく
    「上端に細い光・下端はわずかに沈む」ヘアラインで立体を出す。
