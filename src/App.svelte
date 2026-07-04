@@ -8,6 +8,7 @@
   import { SAMPLE_DECK } from './lib/game/deckImport';
   import { findTournamentDeck } from './lib/game/presetDecks';
   import CardZoom from './lib/components/CardZoom.svelte';
+  import ResultOverlay from './lib/components/ResultOverlay.svelte';
   import AgentManagerModal from './lib/components/AgentManagerModal.svelte';
   import BoardLayer from './lib/components/BoardLayer.svelte';
   import BoardPromptStrip from './lib/components/prompts/BoardPromptStrip.svelte';
@@ -648,6 +649,28 @@
     }
   });
   let gameFinished = $derived(game?.phase === 7);
+  // 勝敗演出（主役の一瞬）: 人間側の席が1つに定まる時だけ 勝利/敗北 を出し分ける
+  let resultDismissed = $state(false);
+  let humanSeat = $derived(
+    onlineRoom
+      ? onlineRoom.seat
+      : activePlayerControls[0] === 'self' && activePlayerControls[1] !== 'self'
+        ? 0
+        : activePlayerControls[1] === 'self' && activePlayerControls[0] !== 'self'
+          ? 1
+          : null,
+  );
+  let resultOutcome = $derived<'win' | 'lose' | 'draw' | 'neutral'>(
+    game?.winner === 3
+      ? 'draw'
+      : game?.winner === 0 || game?.winner === 1
+        ? humanSeat === null
+          ? 'neutral'
+          : game.winner === humanSeat
+            ? 'win'
+            : 'lose'
+        : 'neutral',
+  );
   let winnerName = $derived(
     game?.winner === 0 || game?.winner === 1
       ? game.players[game.winner]?.name
@@ -777,6 +800,7 @@
     gameStore.reset();
     homeMode = 'play';
     activePlayerControls = [player1Control, player2Control];
+    resultDismissed = false;
     await gameSessionStore.run(() =>
       localGameApi.start(decks.player1Cards, decks.player2Cards, {
         player1Control,
@@ -799,6 +823,7 @@
     activePlayerControls = seat === 0 ? ['self', 'agent'] : ['agent', 'self'];
     viewSettingsStore.viewIndex = seat;
     homeMode = 'play';
+    resultDismissed = false;
     try {
       localStorage.setItem(ONLINE_ROOM_STORAGE_KEY, JSON.stringify(onlineRoom));
     } catch {
@@ -1742,6 +1767,9 @@
 
 <svelte:window onkeydown={handleGlobalKeydown} />
 <CardZoom />
+{#if game && gameFinished && !replayMode && !resultDismissed}
+  <ResultOverlay outcome={resultOutcome} label={gameResultLabel} onclose={() => (resultDismissed = true)} />
+{/if}
 {#if concedeConfirmOpen}
   <div class="concede-backdrop" role="dialog" aria-modal="true" aria-label="投了の確認">
     <div class="concede-box">
