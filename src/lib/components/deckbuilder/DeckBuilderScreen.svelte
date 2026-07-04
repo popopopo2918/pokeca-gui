@@ -4,7 +4,8 @@
   import DeckPanel from './DeckPanel.svelte';
   import DeckLibrary from './DeckLibrary.svelte';
   import CardDetailModal from './CardDetailModal.svelte';
-  import CardZoom from '../CardZoom.svelte';
+  import { cardPreviewStore } from '../../../state/cardPreview.svelte';
+  import { japaneseCardName } from '../../cabt/logFormat';
   import { getCatalog, resolveDeckTextEntries, type CatalogCard } from '../../cards/cardCatalog';
   import { deckBuilderStore } from '../../../state/deckBuilder.svelte';
 
@@ -136,6 +137,20 @@
       />
     </section>
 
+    <aside class="preview-pane" aria-label="カード拡大プレビュー">
+      {#if cardPreviewStore.hovered}
+        {@const hovered = cardPreviewStore.hovered}
+        {#if hovered.imageUrl}
+          <img src={hovered.imageUrl} alt={hovered.fullName ?? hovered.name} />
+        {:else}
+          <div class="preview-fallback">{(hovered.id ? japaneseCardName(hovered.id) : '') || hovered.fullName || hovered.name}</div>
+        {/if}
+        <span class="preview-name">{(hovered.id ? japaneseCardName(hovered.id) : '') || hovered.fullName || hovered.name}</span>
+      {:else}
+        <div class="preview-placeholder">カードにマウスを乗せると<br />ここに拡大表示されます</div>
+      {/if}
+    </aside>
+
     <aside class="right">
       <div class="tabs">
         <button class:active={tab === 'deck'} onclick={() => (tab = 'deck')}>デッキ</button>
@@ -192,7 +207,6 @@
   {/if}
 
   {#if toast}<div class="toast">{toast}</div>{/if}
-  <CardZoom />
 </div>
 
 <style>
@@ -205,14 +219,60 @@
     background: var(--app-backdrop-bg);
     color: var(--app-text);
   }
-  /* マウスオーバー拡大は画面中央（ギャラリーと編成パネルの間の空き）に大きく出す */
-  .screen :global(.card-zoom) {
-    z-index: 60;
-    top: 50%;
-    left: 52%;
-    transform: translate(-50%, -50%);
-    width: clamp(240px, 26vw, 380px);
-    pointer-events: none;
+  .preview-pane {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid var(--surface-glass-border);
+    border-radius: var(--radius-lg);
+    background: var(--surface-glass-bg);
+    box-shadow: var(--surface-glass-shadow);
+  }
+
+  .preview-pane img {
+    width: 100%;
+    max-height: calc(100% - 34px);
+    object-fit: contain;
+    border-radius: var(--radius-md);
+  }
+
+  .preview-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: center;
+  }
+
+  .preview-fallback {
+    width: 100%;
+    aspect-ratio: 63 / 88;
+    display: grid;
+    place-items: center;
+    padding: 12px;
+    border: 1px solid var(--surface-inset-border);
+    border-radius: var(--radius-md);
+    background: var(--surface-inset-bg);
+    text-align: center;
+  }
+
+  .preview-placeholder {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  @media (max-width: 1100px) {
+    .body {
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    }
+    .preview-pane {
+      display: none;
+    }
   }
 
   .bar {
@@ -294,7 +354,7 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    grid-template-columns: minmax(0, 1fr) clamp(220px, 19vw, 320px) minmax(320px, 380px);
     gap: 16px;
     padding: 16px 20px;
   }
