@@ -178,4 +178,20 @@
     font-weight: 700;
     color: var(--text-secondary);
   }
+
+  /* ---- 作り込み: ホバーリング・数量コントロール ---- */
+  .art:hover {
+    box-shadow: 0 0 0 2px var(--accent-base), 0 12px 24px rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+  }
+  .thumb.in-deck .art {
+    box-shadow: 0 0 0 2px var(--accent-base);
+  }
+  .controls .mini {
+    border-radius: 999px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    line-height: 1;
+  }
 </style>

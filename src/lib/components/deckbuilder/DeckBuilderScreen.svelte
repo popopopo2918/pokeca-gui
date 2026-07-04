@@ -4,6 +4,7 @@
   import DeckPanel from './DeckPanel.svelte';
   import DeckLibrary from './DeckLibrary.svelte';
   import CardDetailModal from './CardDetailModal.svelte';
+  import Logo from '../Logo.svelte';
   import { cardPreviewStore } from '../../../state/cardPreview.svelte';
   import { japaneseCardName } from '../../cabt/logFormat';
   import { getCatalog, resolveDeckTextEntries, type CatalogCard } from '../../cards/cardCatalog';
@@ -94,6 +95,7 @@
   <header class="bar">
     <div class="title">
       <button class="back" onclick={onclose} aria-label="戻る">← 対戦へ</button>
+      <Logo size={26} emblemOnly />
       <h1>デッキ編成</h1>
       <span class="hint">{cards.length} 種のカードプール</span>
     </div>
@@ -225,19 +227,22 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 14px;
+    gap: 12px;
+    padding: 18px 14px;
     border: 1px solid var(--surface-glass-border);
     border-radius: var(--radius-lg);
-    background: var(--surface-glass-bg);
+    background:
+      radial-gradient(70% 46% at 50% 42%, rgba(77, 141, 255, 0.14), transparent 70%),
+      var(--surface-glass-bg);
     box-shadow: var(--surface-glass-shadow);
   }
 
   .preview-pane img {
     width: 100%;
-    max-height: calc(100% - 34px);
+    max-height: calc(100% - 46px);
     object-fit: contain;
     border-radius: var(--radius-md);
+    filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.55));
   }
 
   .preview-name {
@@ -245,6 +250,14 @@
     font-weight: 700;
     color: var(--text-primary);
     text-align: center;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--surface-inset-border);
+    background: var(--surface-inset-bg);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .preview-fallback {
@@ -288,6 +301,8 @@
     backdrop-filter: blur(var(--backdrop-blur));
   }
   .title { display: flex; align-items: center; gap: 14px; }
+  .title h1 { font-size: 19px; letter-spacing: 0.06em; }
+  .title .hint { color: var(--text-muted); font-size: 12px; }
 
   .code-import {
     display: grid;

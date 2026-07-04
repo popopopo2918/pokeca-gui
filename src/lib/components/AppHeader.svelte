@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Logo from './Logo.svelte';
   import { viewSettingsStore } from '../../state/viewSettings.svelte';
 
   type Props = {
@@ -35,8 +36,7 @@
 
 <header class="app-header">
   <div class="brand">
-    <h1>CABT バトルビューア</h1>
-    <p>人間 vs AI・AI vs AI の対戦とリプレイ</p>
+    <Logo size={36} />
   </div>
   <div class="actions">
     <div class="profile skin-picker">
@@ -102,21 +102,8 @@
     pointer-events: none;
   }
 
-  .app-header h1 {
-    margin: 0;
-    font-size: 30px;
-    line-height: 1;
-    letter-spacing: 0.12em;
-    font-weight: 800;
-    background: var(--holo-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    filter: drop-shadow(0 0 18px rgba(92, 226, 220, 0.28));
-  }
-
-  .app-header p {
-    display: none;
+  .app-header :global(.logo) {
+    filter: none;
   }
 
   .actions {

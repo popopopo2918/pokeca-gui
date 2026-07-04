@@ -174,4 +174,18 @@
     cursor: pointer;
   }
   .empty { text-align: center; color: var(--text-muted); padding: 30px; }
+
+  /* ---- 作り込み: 検索・フィルター ---- */
+  .filters .search {
+    border-radius: 999px;
+    padding-left: 16px;
+  }
+  .filters select {
+    border-radius: 999px;
+  }
+  .filters .search:focus,
+  .filters select:focus {
+    outline: 2px solid var(--accent-base);
+    outline-offset: 1px;
+  }
 </style>

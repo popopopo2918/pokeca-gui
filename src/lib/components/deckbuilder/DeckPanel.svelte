@@ -307,4 +307,41 @@
   }
   .util button:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; }
   .util .danger { color: var(--danger-text); border-color: var(--danger-border); }
+
+  /* ---- 作り込み: 行・数量ボタン・見出し ---- */
+  .list h4 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--surface-inset-border);
+    padding-bottom: 6px;
+  }
+  .list h4 span {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-primary);
+    background: var(--surface-inset-bg);
+    border: 1px solid var(--surface-inset-border);
+    border-radius: 999px;
+    padding: 1px 9px;
+  }
+  .row {
+    border-radius: 8px;
+    padding: 4px 6px;
+    transition: background 0.12s ease;
+  }
+  .row:hover {
+    background: var(--surface-inset-bg);
+  }
+  .qty button {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    padding: 0;
+    line-height: 1;
+    font-weight: 800;
+  }
 </style>
