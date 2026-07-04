@@ -24,7 +24,7 @@
           document.documentElement.dataset.themePreference = preference;
           document.documentElement.style.colorScheme = theme;
           const settings = JSON.parse(localStorage.getItem('cabt.viewSettings') || '{}');
-          document.documentElement.dataset.skin = typeof settings.skin === 'string' ? settings.skin : 'default';
+          document.documentElement.dataset.skin = typeof settings.skin === 'string' ? settings.skin : 'broadcast';
         } catch {
           document.documentElement.dataset.theme = 'dark';
           document.documentElement.dataset.themePreference = 'dark';

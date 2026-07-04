@@ -198,7 +198,7 @@
   padding-left: 58px;
 }
 [data-skin='broadcast'] .log-ticker::before {
-  content: 'LIVE';
+  content: 'ログ';
   position: absolute;
   left: 0;
   top: 0;
@@ -208,8 +208,8 @@
   place-items: center;
   background: #d9a441;
   color: #161006;
-  font: 700 12px 'Barlow Condensed', sans-serif;
-  letter-spacing: 0.22em;
+  font: 700 12px 'Noto Sans JP', sans-serif;
+  letter-spacing: 0.1em;
   border-radius: 3px 0 0 3px;
 }
 
@@ -228,6 +228,153 @@
 [data-skin='broadcast'] .table-toolbar button.turn-end:disabled {
   filter: grayscale(0.6) brightness(0.7);
   opacity: 1;
+}
+
+/* ---- 全ページ展開（メニュー・デッキ編成・モーダル・プロンプト） ---- */
+
+/* アプリヘッダー＝番組バー：下端に放送ブルーのライン */
+[data-skin='broadcast'] .app-header {
+  background: rgba(10, 13, 19, 0.96);
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, #3d8bfd, #2f66c4 40%, transparent 80%) 1;
+}
+[data-skin='broadcast'] .app-header .brand h1 {
+  letter-spacing: 0.12em;
+}
+[data-skin='broadcast'] .app-header .brand h1::after {
+  content: ' LIVE';
+  color: #3d8bfd;
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.28em;
+  font-size: 0.8em;
+}
+
+/* メニュー（対戦準備）：ステージ背景＋斜めのスタジオライン */
+[data-skin='broadcast'] .import-screen {
+  background:
+    repeating-linear-gradient(115deg, rgba(61, 139, 253, 0.028) 0 2px, transparent 2px 16px),
+    radial-gradient(1100px 480px at 50% 0%, #16202e, #0c1017 70%);
+}
+
+/* タブ＝セグメント切替（アクティブは青） */
+[data-skin='broadcast'] .home-tabs button.active,
+[data-skin='broadcast'] .control-tabs button.active {
+  background: linear-gradient(90deg, #3d8bfd, #2f66c4);
+  color: #fff;
+}
+
+/* プレイヤー見出し＝ローワーサード（斜めカットの青帯） */
+[data-skin='broadcast'] .import-screen .deck-label-row {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+  background: linear-gradient(90deg, rgba(61, 139, 253, 0.9), rgba(47, 102, 196, 0.55) 60%, transparent);
+  color: #fff;
+  padding: 8px 26px 8px 14px;
+  border-radius: 4px 0 0 4px;
+  letter-spacing: 0.1em;
+}
+[data-skin='broadcast'] .import-screen .deck-label-row .preview-button {
+  background: rgba(10, 13, 19, 0.55);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+/* 対戦開始＝メインテロップ */
+[data-skin='broadcast'] .import-screen button.primary {
+  padding: 15px 22px;
+  font-size: 17px;
+  letter-spacing: 0.3em;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+  box-shadow: 0 10px 26px rgba(61, 139, 253, 0.28);
+}
+
+/* オンライン対戦＝金タグ付きコーナー */
+[data-skin='broadcast'] .import-screen .online-box {
+  border-left: 4px solid #d9a441;
+  background: rgba(16, 21, 29, 0.9);
+}
+
+/* デッキ編成：番組バー＋青タブ＋プレビュー枠の見出し */
+[data-skin='broadcast'] .screen .bar {
+  background: rgba(10, 13, 19, 0.96);
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, #3d8bfd, #2f66c4 40%, transparent 80%) 1;
+}
+[data-skin='broadcast'] .screen .tabs button.active {
+  background: linear-gradient(90deg, #3d8bfd, #2f66c4);
+  border-color: transparent;
+  color: #fff;
+}
+[data-skin='broadcast'] .screen .preview-pane {
+  position: relative;
+  border-left: 4px solid #d9a441;
+}
+[data-skin='broadcast'] .screen .preview-pane::before {
+  content: 'カード拡大';
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font: 700 11px 'Noto Sans JP', sans-serif;
+  letter-spacing: 0.14em;
+  color: #93a0b2;
+}
+
+/* デッキ画像プレビュー（画像で確認）＝金タグの番組コーナー */
+[data-skin='broadcast'] .deck-preview {
+  border-left: 4px solid #d9a441;
+}
+[data-skin='broadcast'] .deck-preview header strong {
+  letter-spacing: 0.08em;
+}
+
+/* プロンプト（選択オーバーレイ）＝テロップパネル */
+[data-skin='broadcast'] .prompt-panel {
+  border-left: 4px solid #3d8bfd;
+  border-radius: 4px;
+}
+[data-skin='broadcast'] .prompt-panel button.primary {
+  border: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #3d8bfd, #2f66c4);
+  color: #fff;
+  letter-spacing: 0.12em;
+}
+
+/* ツールバー：投了は赤の枠テロップ、ライブ表示ボタンは金 */
+[data-skin='broadcast'] .table-toolbar {
+  border-radius: 4px;
+}
+[data-skin='broadcast'] .table-toolbar button {
+  border-radius: 3px;
+}
+[data-skin='broadcast'] .table-toolbar button.danger {
+  background: transparent;
+  border: 1px solid #7e2634;
+  color: #ff7285;
+  letter-spacing: 0.2em;
+}
+[data-skin='broadcast'] .review-controls .live-btn.reviewing {
+  background: #d9a441;
+  border-color: #d9a441;
+  color: #161006;
+}
+
+/* 手札カウンター・整列＝スコアチップ */
+[data-skin='broadcast'] .hand-count {
+  background: #10151d;
+  border: 1px solid #2a3340;
+  border-left: 3px solid #d9a441;
+  border-radius: 3px;
+  color: #f5f7fa;
+}
+[data-skin='broadcast'] .hand-sort {
+  border-radius: 3px;
+}
+
+/* 勝敗画面・エラートースト等の丸みも放送調（角を締める） */
+[data-skin='broadcast'] .replay-loading-panel,
+[data-skin='broadcast'] .code-warnings {
+  border-left: 4px solid #d9a441;
+  border-radius: 4px;
 }
 
 /* ============================================================================
