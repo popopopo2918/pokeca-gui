@@ -41,6 +41,60 @@
 }
 
 /* ============================================================
+   面の輪郭＝エッジライト
+   すべての「浮いているパネル」は、均一な1px灰色線ではなく
+   「上端に細い光・下端はわずかに沈む」ヘアラインで立体を出す。
+   （へこんでいる入力面・インセット面はフラットのまま＝面の階層を線で語る）
+   ============================================================ */
+[data-skin='broadcast'] :is(
+  .player-card,
+  .online-card,
+  .log-card,
+  .screen .left,
+  .screen .right,
+  .screen .preview-pane,
+  .prompt-panel,
+  .game-status,
+  .turn-banner,
+  .log-ticker,
+  .concede-box,
+  .replay-loading-panel,
+  .deck-preview,
+  .backdrop .modal
+) {
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* 大きな作業面（デッキ編成の左右パネル）は光をやや強く＝主面として際立てる */
+[data-skin='broadcast'] .screen .left,
+[data-skin='broadcast'] .screen .right {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 20px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* 区切りのヘアライン（パネル内の border-top/bottom）は中央が明るいグラデ線に */
+[data-skin='broadcast'] .panel .actions {
+  border-top: 0;
+  position: relative;
+  padding-top: 13px;
+}
+[data-skin='broadcast'] .panel .actions::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -2px;
+  right: -2px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14) 30%, rgba(255, 255, 255, 0.14) 70%, transparent);
+}
+
+/* ============================================================
    タイポグラフィ: 見出し・テロップは Zen Kaku Gothic New、
    数字（HP・枚数・ダメージ）は放送テロップ風の Barlow Condensed。
    読み込めない環境では Noto Sans JP 系へ自然にフォールバックする。
