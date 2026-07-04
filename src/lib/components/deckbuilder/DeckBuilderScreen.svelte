@@ -383,21 +383,30 @@
   }
   .left { display: flex; }
   .right { display: flex; flex-direction: column; }
-  .tabs { display: flex; gap: 6px; margin-bottom: 12px; flex: none; }
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 12px;
+    flex: none;
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--surface-inset-border);
+    background: var(--surface-inset-bg);
+  }
   .tabs button {
-    flex: 1;
+    border: 0;
+    border-radius: 7px;
     padding: 8px;
-    border: 1px solid var(--button-border);
-    border-radius: var(--radius-sm);
-    background: var(--button-bg);
-    color: var(--button-text);
+    background: transparent;
+    color: var(--text-secondary);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
   }
   .tabs button.active {
     background: var(--accent-base);
-    border-color: var(--accent-base);
     color: var(--text-on-accent);
   }
   .tab-body { flex: 1; min-height: 0; }

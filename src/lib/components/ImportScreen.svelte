@@ -298,7 +298,10 @@
       {/if}
     {:else}
       <div class="log-toolbar">
-        <strong>対戦ログ</strong>
+        <div class="log-head">
+          <strong>対戦ログ</strong>
+          {#if gameLogs.length}<span class="log-count">{gameLogs.length}件</span>{/if}
+        </div>
         <button type="button" disabled={catalogBusy} onclick={refreshCatalog}>
           {catalogBusy ? '更新中…' : '更新'}
         </button>
@@ -313,16 +316,21 @@
       {:else if gameLogs.length === 0}
         <p class="empty"><code>public/game-logs</code> に対戦ログがありません。</p>
       {:else}
-        <div class="log-list">
+        <div class="log-grid">
           {#each gameLogs as log}
-            <button type="button" disabled={busy} onclick={() => loadGameLog(log)}>
-              <span>
-                <strong>{log.name}</strong>
-                <small>{logPlayerLabel(log)}</small>
+            <button type="button" class="log-card" disabled={busy} onclick={() => loadGameLog(log)}>
+              <span class="log-eyebrow">リプレイ</span>
+              <strong class="log-name">{log.name}</strong>
+              <span class="log-players">
+                {#if log.players && log.players.length === 2}
+                  <b>{log.players[0]}</b><i>vs</i><b>{log.players[1]}</b>
+                {:else}
+                  <b>{logPlayerLabel(log)}</b>
+                {/if}
               </span>
-              <span>
+              <span class="log-foot">
                 {#if log.createdAt}<small>{log.createdAt}</small>{/if}
-                <small>{log.file}</small>
+                <small class="log-file">{log.file}</small>
               </span>
             </button>
           {/each}
@@ -720,12 +728,28 @@
     gap: 12px;
   }
 
-  .log-toolbar strong {
+  .log-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .log-head strong {
     font-size: 16px;
     color: var(--text-primary);
   }
 
-  .log-toolbar button {
+  .log-count {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: var(--surface-inset-bg);
+    border: 1px solid var(--surface-inset-border);
+    border-radius: 999px;
+    padding: 2px 10px;
+  }
+
+  .log-toolbar > button {
     border: 1px solid var(--button-border);
     border-radius: 9px;
     background: var(--button-bg);
@@ -734,49 +758,119 @@
     padding: 8px 16px;
   }
 
-  .log-list {
+  /* リプレイカードのグリッド */
+  .log-grid {
     display: grid;
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
     max-height: min(72vh, 820px);
     overflow: auto;
+    padding: 2px;
   }
 
-  .log-list button {
+  .log-card {
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(140px, auto);
-    gap: 12px;
-    align-items: center;
-    min-height: 58px;
-    padding: 10px 14px;
+    gap: 7px;
+    align-content: start;
+    padding: 14px 16px;
     border: 1px solid var(--surface-glass-border);
-    border-radius: 12px;
+    border-radius: 14px;
     text-align: left;
     background: var(--surface-glass-bg);
     color: var(--text-primary);
-    transition: border-color 0.15s ease;
+    overflow: hidden;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
 
-  .log-list button:hover {
+  .log-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--accent-base);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .log-card:hover:not(:disabled) {
     border-color: var(--accent-base);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
   }
 
-  .log-list span {
-    display: grid;
-    min-width: 0;
-    gap: 2px;
+  .log-card:hover:not(:disabled)::before {
+    opacity: 1;
   }
 
-  .log-list strong,
-  .log-list small {
+  .log-eyebrow {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    color: var(--accent-base);
+  }
+
+  .log-name {
+    font-size: 14.5px;
+    font-weight: 800;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .log-list small {
+  .log-players {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .log-players b {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: var(--surface-inset-bg);
+    border: 1px solid var(--surface-inset-border);
+    border-radius: 999px;
+    padding: 3px 11px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .log-players i {
+    flex: none;
+    font-size: 10px;
+    font-weight: 900;
+    font-style: normal;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+
+  .log-foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    margin-top: 2px;
+  }
+
+  .log-foot small {
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 11.5px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .log-file {
+    font-family: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+    color: var(--text-muted);
+    font-size: 10.5px;
   }
 
   .empty {
@@ -804,7 +898,7 @@
       display: none;
     }
 
-    .log-list button {
+    .log-grid {
       grid-template-columns: 1fr;
     }
   }

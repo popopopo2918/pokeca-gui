@@ -39,51 +39,55 @@
     <Logo size={36} />
   </div>
   <div class="actions">
-    <div class="profile skin-picker">
-      <span class="label">スキン</span>
-      <select
-        value={viewSettingsStore.skin}
-        onchange={(e) => (viewSettingsStore.skin = (e.currentTarget as HTMLSelectElement).value)}
-        aria-label="見た目スキン"
-      >
-        <option value="default">現行</option>
-        <option value="tabletop">A 卓上プロ</option>
-        <option value="broadcast">B 大会放送</option>
-        <option value="binder">C バインダー</option>
-      </select>
-    </div>
-    {#if onSelectProfile && profiles.length}
-      <div class="profile">
-        <span class="label">ユーザー</span>
+    <!-- 設定類は1本のコントロールバーにまとめる -->
+    <div class="cluster">
+      <div class="group">
+        <span class="label">スキン</span>
         <select
-          value={activeProfile}
-          onchange={(e) => onSelectProfile?.((e.currentTarget as HTMLSelectElement).value)}
-          aria-label="作業ユーザー（プロフィール）"
+          value={viewSettingsStore.skin}
+          onchange={(e) => (viewSettingsStore.skin = (e.currentTarget as HTMLSelectElement).value)}
+          aria-label="見た目スキン"
         >
-          {#each profiles as profile}<option value={profile}>{profile}</option>{/each}
+          <option value="default">現行</option>
+          <option value="tabletop">A 卓上プロ</option>
+          <option value="broadcast">B 大会放送</option>
+          <option value="binder">C バインダー</option>
         </select>
-        {#if creating}
-          <input
-            class="new-name"
-            placeholder="新しいユーザー名"
-            bind:value={newName}
-            onkeydown={(e) => e.key === 'Enter' && submitNew()}
-          />
-          <button onclick={submitNew}>作成</button>
-          <button class="ghost" onclick={() => { creating = false; newName = ''; }} aria-label="キャンセル">×</button>
-        {:else}
-          <button onclick={() => (creating = true)}>＋新規</button>
-          {#if onManageAgents}
-            <button onclick={onManageAgents} title="自作AI（main.py/deck.csv）をアップロード・管理">自作AI</button>
-          {/if}
-          {#if onImportSamples}
-            <button onclick={onImportSamples} title="公式サンプルをこのユーザーのワークスペースにコピー">公式をコピー</button>
-          {/if}
-        {/if}
       </div>
-    {/if}
+      {#if onSelectProfile && profiles.length}
+        <span class="sep" aria-hidden="true"></span>
+        <div class="group">
+          <span class="label">ユーザー</span>
+          <select
+            value={activeProfile}
+            onchange={(e) => onSelectProfile?.((e.currentTarget as HTMLSelectElement).value)}
+            aria-label="作業ユーザー（プロフィール）"
+          >
+            {#each profiles as profile}<option value={profile}>{profile}</option>{/each}
+          </select>
+          {#if creating}
+            <input
+              class="new-name"
+              placeholder="新しいユーザー名"
+              bind:value={newName}
+              onkeydown={(e) => e.key === 'Enter' && submitNew()}
+            />
+            <button class="quiet" onclick={submitNew}>作成</button>
+            <button class="quiet ghost" onclick={() => { creating = false; newName = ''; }} aria-label="キャンセル">×</button>
+          {:else}
+            <button class="quiet" onclick={() => (creating = true)}>＋新規</button>
+            {#if onManageAgents}
+              <button class="quiet" onclick={onManageAgents} title="自作AI（main.py/deck.csv）をアップロード・管理">自作AI</button>
+            {/if}
+            {#if onImportSamples}
+              <button class="quiet" onclick={onImportSamples} title="公式サンプルをこのユーザーのワークスペースにコピー">公式をコピー</button>
+            {/if}
+          {/if}
+        </div>
+      {/if}
+    </div>
     {#if onOpenDeckBuilder}
-      <button class="nav-btn" onclick={onOpenDeckBuilder}>🃏 デッキ編成 / カード一覧</button>
+      <button class="nav-btn" onclick={onOpenDeckBuilder}>デッキ編成・カード一覧</button>
     {/if}
   </div>
 </header>
@@ -115,11 +119,12 @@
     justify-content: flex-end;
   }
 
-  .profile {
+  /* 1本のバー: 中の要素は高さ30pxで統一し、縦の区切り線でグループを分ける */
+  .cluster {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
+    gap: 10px;
+    padding: 7px 12px;
     border-radius: var(--radius-pill);
     background: var(--surface-glass-bg);
     border: 1px solid var(--surface-glass-border);
@@ -127,60 +132,99 @@
     backdrop-filter: blur(var(--backdrop-blur));
   }
 
-  .profile .label {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-muted);
-    padding-left: 4px;
+  .group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
-  .profile select,
-  .profile .new-name {
-    padding: 5px 8px;
-    border: 1px solid var(--input-border);
-    border-radius: var(--radius-sm);
-    background: var(--input-bg);
+  .sep {
+    width: 1px;
+    height: 20px;
+    background: var(--surface-inset-border);
+  }
+
+  .label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  .group select,
+  .group .new-name {
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
     color: var(--input-text);
     font-size: 13px;
     font-weight: 600;
-  }
-
-  .profile button {
-    padding: 5px 10px;
-    border: 1px solid var(--button-border);
-    border-radius: var(--radius-sm);
-    background: var(--button-bg);
-    color: var(--button-text);
-    font-size: 12px;
-    font-weight: 600;
     cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
   }
 
-  .profile button:hover {
+  .group select:hover,
+  .group .new-name:focus {
+    background: var(--surface-inset-bg);
+    border-color: var(--surface-inset-border);
+  }
+
+  .group .new-name {
+    cursor: text;
+    width: 150px;
+    border-color: var(--input-border);
+    background: var(--input-bg);
+  }
+
+  .group .new-name:focus {
+    outline: none;
     border-color: var(--accent-base);
   }
 
-  .profile button.ghost {
-    border: none;
+  button.quiet {
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
     background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+
+  button.quiet:hover {
+    background: var(--surface-inset-bg);
+    border-color: var(--surface-inset-border);
+    color: var(--text-primary);
+  }
+
+  button.quiet.ghost {
+    padding: 0 7px;
     color: var(--text-muted);
   }
 
   .nav-btn {
-    padding: 9px 16px;
-    border: 1px solid var(--button-border);
+    height: 44px;
+    padding: 0 18px;
+    border: 1px solid color-mix(in srgb, var(--accent-base) 55%, transparent);
     border-radius: var(--radius-pill);
-    background: var(--surface-glass-bg);
-    color: var(--button-text);
+    background: color-mix(in srgb, var(--accent-base) 14%, var(--surface-glass-bg));
+    color: var(--text-primary);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 800;
+    letter-spacing: 0.04em;
     cursor: pointer;
     box-shadow: var(--surface-toolbar-shadow);
     backdrop-filter: blur(var(--backdrop-blur));
-    transition: border-color var(--transition-fast);
+    transition: border-color var(--transition-fast), background 0.12s ease;
   }
 
   .nav-btn:hover {
     border-color: var(--accent-base);
+    background: color-mix(in srgb, var(--accent-base) 24%, var(--surface-glass-bg));
   }
 </style>
