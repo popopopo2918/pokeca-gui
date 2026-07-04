@@ -852,25 +852,41 @@ function isPrizeSelectionPrompt(select: CabtSelectData) {
     );
 }
 
-/** 改造ハンマー等の装着カード選択で「どのポケモンに付いているか」を示すラベル。 */
+/** 選択肢が「場のどのポケモンに作用するか」を示すラベル。
+ * 改造ハンマー等（装着カード選択）と、ふしぎなアメ等（進化先の選択:
+ * 同じ手札カードでも inPlay 対象が異なる）で使う。 */
 function optionOwnerLabel(option: CabtOption, observation: CabtObservation): string | undefined {
+  const current = observation.current;
+  if (!current) {
+    return undefined;
+  }
   const hasAttachedRef = (option.energyIndex !== undefined && option.energyIndex !== null)
     || (option.toolIndex !== undefined && option.toolIndex !== null);
-  if (!hasAttachedRef) {
-    return undefined;
+  if (hasAttachedRef && option.index !== undefined && option.index !== null) {
+    return inPlayLabel(current, option.playerIndex, option.area, option.index);
   }
-  const current = observation.current;
-  if (!current || option.index === undefined || option.index === null) {
-    return undefined;
+  if (option.inPlayArea !== undefined && option.inPlayArea !== null
+    && option.inPlayIndex !== undefined && option.inPlayIndex !== null) {
+    const label = inPlayLabel(current, option.playerIndex, option.inPlayArea, option.inPlayIndex);
+    return label ? `${label}を対象` : undefined;
   }
-  const playerIndex = option.playerIndex ?? current.yourIndex;
+  return undefined;
+}
+
+function inPlayLabel(
+  current: NonNullable<CabtObservation['current']>,
+  optionPlayerIndex: number | null | undefined,
+  area: number | null | undefined,
+  index: number,
+): string | undefined {
+  const playerIndex = optionPlayerIndex ?? current.yourIndex;
   const player = current.players[playerIndex];
-  const holder = option.area === CabtAreaType.BENCH ? player?.bench[option.index] : player?.active[option.index];
+  const holder = area === CabtAreaType.BENCH ? player?.bench[index] : player?.active[index];
   if (!holder) {
     return undefined;
   }
   const owner = playerIndex === current.yourIndex ? '自分' : '相手';
-  const place = option.area === CabtAreaType.BENCH ? 'ベンチ' : 'バトル場';
+  const place = area === CabtAreaType.BENCH ? 'ベンチ' : 'バトル場';
   return `${owner}の${place}「${japaneseCardName(holder.id)}」`;
 }
 

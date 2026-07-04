@@ -100,13 +100,18 @@
   data-card-count={player.hand.length}
   onscroll={updateScrollIndicators}
 >
-  {#if sortable && !concealed && player.hand.length > 1}
-    <button
-      class="hand-sort"
-      class:active={sorted}
-      onclick={onToggleSort}
-      title="手札の表示をポケモン→トレーナーズ→エネルギーの順に整列します（表示のみ・ゲームには影響しません）"
-    >整列</button>
+  {#if sortable && !concealed && player.hand.length > 0}
+    <span class="hand-tools">
+      {#if player.hand.length > 1}
+        <button
+          class="hand-sort"
+          class:active={sorted}
+          onclick={onToggleSort}
+          title="手札の表示をポケモン→トレーナーズ→エネルギーの順に整列します（表示のみ・ゲームには影響しません）"
+        >整列</button>
+      {/if}
+      <span class="hand-count" title="手札の枚数">{player.hand.length}枚</span>
+    </span>
   {/if}
   {#each displayIndexes as index (index)}
     {@const card = player.hand[index]}
@@ -183,12 +188,18 @@
     flex: 0 0 auto;
   }
 
-  .hand-sort {
+  .hand-tools {
     position: sticky;
     left: 4px;
     z-index: 3;
     flex: 0 0 auto;
     align-self: center;
+    display: grid;
+    gap: 4px;
+    justify-items: center;
+  }
+
+  .hand-sort {
     padding: 6px 8px;
     border: 1px solid var(--button-border);
     border-radius: 999px;
@@ -203,6 +214,16 @@
   .hand-sort.active {
     border-color: var(--accent-base);
     color: var(--accent-base);
+  }
+
+  .hand-count {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-toolbar-bg);
+    border: 1px solid var(--surface-toolbar-border);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 800;
   }
 
   :global(.debug-zones) .hand {
