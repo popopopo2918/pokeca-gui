@@ -83,6 +83,11 @@
           <span style={`--row: ${Math.floor(index / 2)}; --col: ${index % 2};`}></span>
         {/each}
       </button>
+      {#if canInspectPrizes(topPlayer)}
+        <button type="button" class="prize-inspect" onclick={() => showPrizes?.(topPlayer)}>
+          サイド確認
+        </button>
+      {/if}
     </div>
     <div class="right-field">
       <div class="right-piles">
@@ -140,6 +145,11 @@
           <span style={`--row: ${Math.floor(index / 2)}; --col: ${index % 2};`}></span>
         {/each}
       </button>
+      {#if canInspectPrizes(bottomPlayer)}
+        <button type="button" class="prize-inspect" onclick={() => showPrizes?.(bottomPlayer)}>
+          サイド確認
+        </button>
+      {/if}
     </div>
     <div class="right-field">
       <div class="right-piles">
@@ -430,6 +440,26 @@
     outline: 2px solid rgba(250, 204, 21, 0.9);
     outline-offset: 4px;
     background: rgba(250, 204, 21, 0.08);
+  }
+
+  /* 自分のサイドの中身を開く明示ボタン（束クリックと同じ動作） */
+  .prize-inspect {
+    margin-top: 6px;
+    padding: 4px 11px;
+    border: 1px solid rgba(77, 141, 255, 0.5);
+    border-radius: 999px;
+    background: rgba(13, 17, 23, 0.88);
+    color: #9dc0ff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  }
+  .prize-inspect:hover {
+    background: rgba(77, 141, 255, 0.16);
+    border-color: rgba(77, 141, 255, 0.8);
+    color: #c4d9ff;
   }
 
   /* ボタン化してもレイアウトは div の頃と同一に保つ */
