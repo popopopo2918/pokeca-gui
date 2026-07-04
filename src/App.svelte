@@ -1217,14 +1217,32 @@
   let concedeConfirmOpen = $state(false);
 
   function concede() {
-    if (!game || !activePlayer || gameFinished) return;
+    if (!game || gameFinished || replayMode) return;
     concedeConfirmOpen = true;
+  }
+
+  // 投了するのは常に「人間側の席」。手番側(activePlayerIndex)を使うと、
+  // 相手ターン中の投了で相手を投了させてしまう。
+  function concedeSeat(): number {
+    if (onlineRoom) return onlineRoom.seat;
+    if (activePlayerControls[0] === 'self' && activePlayerControls[1] !== 'self') return 0;
+    if (activePlayerControls[1] === 'self' && activePlayerControls[0] !== 'self') return 1;
+    return game?.activePlayerIndex ?? 0;
   }
 
   async function doConcede() {
     concedeConfirmOpen = false;
-    if (!game || !activePlayer || gameFinished) return;
-    await gameSessionStore.run(() => commandApi.concede(game.activePlayerIndex));
+    if (!game || gameFinished) return;
+    const seat = concedeSeat();
+    // 相手ターンの「1手ずつ再生」中はコマンドが長時間 busy のままになり、
+    // 投了が実質押せなかった。アニメーションを即終了させ、完了を待ってから送る。
+    gameStore.fastForwardSequence();
+    for (let i = 0; i < 100 && gameStore.busy; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (gameStore.game?.phase === 7) return;
+    await gameSessionStore.run(() => commandApi.concede(seat));
+    gameStore.returnToLive();
   }
 
   async function passTurn() {
@@ -1728,7 +1746,7 @@
   <div class="concede-backdrop" role="dialog" aria-modal="true" aria-label="投了の確認">
     <div class="concede-box">
       <strong>投了しますか？</strong>
-      <p>{activePlayer?.name ?? ''} が投了して、この対戦を終了します。</p>
+      <p>{game?.players[concedeSeat()]?.name ?? ''} が投了して、この対戦を終了します。</p>
       <div class="concede-actions">
         <button type="button" onclick={() => (concedeConfirmOpen = false)}>やめる</button>
         <button type="button" class="concede-go" onclick={doConcede}>投了する</button>
@@ -1867,6 +1885,7 @@
         busy={sessionBusy}
         promptActive={replayMode || !!currentPrompt}
         {gameFinished}
+        concedeDisabled={replayMode || gameFinished}
         {error}
         {resetPerspective}
         {passTurn}

@@ -123,6 +123,16 @@ class GameStore {
     }
   }
 
+  /** 再生中のアニメーションを直ちに終わらせる（投了などの割り込み操作用）。 */
+  fastForwardSequence() {
+    if (this.playingSequence) {
+      this.skipSequenceRequested = true;
+      this.confirmPlaybackPrompt();
+    }
+  }
+
+  private skipSequenceRequested = false;
+
   async apply(response: EngineResponse, generation = this.generation) {
     if (generation !== this.generation) {
       return response;
@@ -132,6 +142,9 @@ class GameStore {
         this.playingSequence = true;
         try {
           for (const view of response.sequence) {
+            if (this.skipSequenceRequested) {
+              break;
+            }
             this.game = view;
             this.error = '';
             if (hasPlaybackPrompt(view)) {
@@ -150,6 +163,7 @@ class GameStore {
         } finally {
           if (generation === this.generation) {
             this.playingSequence = false;
+            this.skipSequenceRequested = false;
           }
         }
       }

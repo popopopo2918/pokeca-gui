@@ -21,6 +21,8 @@
     busy?: boolean;
     promptActive?: boolean;
     gameFinished?: boolean;
+    /** 投了だけは相手ターンの再生中でも押せるよう、無効条件を分離している */
+    concedeDisabled?: boolean;
     error?: string;
     resetPerspective: () => void;
     passTurn: () => void;
@@ -59,6 +61,7 @@
     busy = false,
     promptActive = false,
     gameFinished = false,
+    concedeDisabled = false,
     error = '',
     resetPerspective,
     passTurn,
@@ -83,7 +86,7 @@
 <div class="table-toolbar">
   <button
     class="danger"
-    disabled={busy || promptActive || gameFinished || reviewing}
+    disabled={concedeDisabled}
     onclick={concede}
   >投了</button>
   <div class="sidebar-turn-actions">

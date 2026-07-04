@@ -166,7 +166,8 @@ export async function roomCommand(clientId: string, code: string, command: { typ
     return { ok: false, error: 'オンライン対戦ではこの操作は使えません。' };
   }
   const acting = actingSeat(room);
-  if (command.type !== 'state' && acting !== seat) {
+  // 投了は自分の手番でなくてもできる（手番制限すると相手ターン中に降参できない）
+  if (command.type !== 'state' && command.type !== 'concede' && acting !== seat) {
     return { ok: false, error: '相手の手番です。' };
   }
 
