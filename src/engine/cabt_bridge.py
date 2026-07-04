@@ -407,20 +407,23 @@ class Session:
     def undo_count(self) -> int:
         return sum(1 for entry in self.history if entry["human"] and entry["main"])
 
-    def true_hands(self, force: bool = False) -> dict[str, list[dict[str, Any]]] | None:
-        """Both players' actual current hands from the engine's spectator data.
+    def true_state(self, force: bool = False) -> tuple[
+        dict[str, list[dict[str, Any]]] | None,
+        dict[str, list[dict[str, Any]]] | None,
+    ]:
+        """Both players' actual hands AND prize cards from the engine's spectator data.
 
-        GetBattleData masks the non-selecting player's hand, but VisualizeData is the
-        full-information spectator feed, so the reveal-hands AI-testing view can show
-        the opponent's real hand at all times. Unavailable once the game has been
-        branched by an undo (the spectator feed still describes the abandoned battle).
+        GetBattleData masks the non-selecting player's hand and everyone's prizes,
+        but VisualizeData is the full-information spectator feed. Unavailable once
+        the game has been branched by an undo (the spectator feed still describes
+        the abandoned battle, and prizes are re-randomized in the branch).
 
         The feed re-serializes the whole match history on every call, so it is only
-        consulted when the cached last-seen hand no longer matches a hidden hand's
-        count (the client falls back to that same cache otherwise).
+        consulted when forced (a mutating command) or when the cached last-seen hand
+        no longer matches a hidden hand's count.
         """
         if not self.active or self.search_id is not None:
-            return None
+            return None, None
         players = (self.obs or {}).get("current", {}).get("players") or []
         stale = force or any(
             player.get("hand") is None
@@ -428,7 +431,7 @@ class Session:
             for index, player in enumerate(players)
         )
         if not stale:
-            return None
+            return None, None
         try:
             raw = visualize_data()
             # The feed is a JSON array of every frame since battle start; only the last
@@ -436,20 +439,28 @@ class Session:
             # 末尾に ] や改行が付いていてもパースが壊れない（以前は [:-1] 前提で沈黙死）。
             frame = json.JSONDecoder().raw_decode(raw, raw.rindex('{"select"'))[0]
             players = (frame.get("current") or {}).get("players") or []
-            return {str(index): (player.get("hand") or []) for index, player in enumerate(players)}
+            hands = {str(index): (player.get("hand") or []) for index, player in enumerate(players)}
+            # 取られたサイドは null になるため実在するカードだけ返す
+            prizes = {
+                str(index): [card for card in (player.get("prize") or []) if card]
+                for index, player in enumerate(players)
+            }
+            return hands, prizes
         except Exception:
-            return None
+            return None, None
 
     def snapshot(self, auto_steps: list[dict[str, Any]] | None = None, include_card_data: bool = False) -> dict[str, Any]:
+        # 何かしら盤面が動いた応答（auto_steps あり）は毎回観戦フィードで実状態を取り直す。
+        # 枚数ベースの stale 判定だけだと「枚数同じで中身だけ変わる」手札干渉
+        # （マリィ/ジャッジマン等）を見逃し、古い手札や未公開グレーが表示される。
+        true_hands, true_prizes = self.true_state(force=bool(auto_steps))
         response = {
             "ok": True,
             "observation": self.obs,
             "autoSteps": auto_steps or [],
             "undoCount": self.undo_count(),
-            # 何かしら盤面が動いた応答（auto_steps あり）は毎回観戦フィードで実手札を取り直す。
-            # 枚数ベースの stale 判定だけだと「枚数同じで中身だけ変わる」手札干渉
-            # （マリィ/ジャッジマン等）を見逃し、古い手札や未公開グレーが表示される。
-            "trueHands": self.true_hands(force=bool(auto_steps)),
+            "trueHands": true_hands,
+            "truePrizes": true_prizes,
         }
         # The full card/attack database is large; ship it once per battle, not on
         # every command (the client keeps the maps from the start response).

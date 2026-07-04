@@ -31,6 +31,7 @@
     canPlaceSetupActive: (slot: PokemonSlotView) => boolean;
     placeSetupActive: () => void;
     showZone: (playerIndex: number, zone: ZoneName, title: string, faceDown?: boolean) => void;
+    canInspectPrizes?: (player: PlayerView) => boolean;
     canPlayOnBoard?: boolean;
     clickBoardPlay: (event: MouseEvent) => void;
     allowBoardPlayDrop: (event: DragEvent) => void;
@@ -66,6 +67,7 @@
     canPlaceSetupActive,
     placeSetupActive,
     showZone,
+    canInspectPrizes = () => false,
     canPlayOnBoard = false,
     clickBoardPlay,
     allowBoardPlayDrop,
@@ -151,6 +153,10 @@
   function showDiscard(player: PlayerView) {
     showZone(player.index, 'discard', `${player.name} discard`);
   }
+
+  function showPrizes(player: PlayerView) {
+    showZone(player.index, 'prizeContents', `${player.name} のサイド（順不同・どれを引くかはランダム）`);
+  }
 </script>
 
 <section
@@ -204,6 +210,8 @@
       bind:bottomDiscardPileElement
       {showLostZone}
       {showDiscard}
+      {canInspectPrizes}
+      {showPrizes}
     />
 
     <ActiveDuel

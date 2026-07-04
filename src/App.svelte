@@ -2088,6 +2088,7 @@
           {canPlaceSetupActive}
           {placeSetupActive}
           {showZone}
+          canInspectPrizes={(player) => !replayMode && isSelfControlled(player.index) && !!player.prizeContents?.length}
           {canPlayOnBoard}
           {clickBoardPlay}
           {allowBoardPlayDrop}

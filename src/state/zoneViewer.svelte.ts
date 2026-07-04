@@ -1,6 +1,6 @@
 import type { CardView, GameView } from '../lib/game/types';
 
-export type ZoneName = 'discard' | 'lostZone' | 'stadium' | 'playZone';
+export type ZoneName = 'discard' | 'lostZone' | 'stadium' | 'playZone' | 'prizeContents';
 
 type OpenZone = {
   playerIndex: number;

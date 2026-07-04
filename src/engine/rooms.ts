@@ -233,7 +233,7 @@ function maskViewForSeat(view: GameView, seat: number): GameView {
     ...view,
     players: view.players.map((player, index) => (
       index === opponent
-        ? { ...player, hand: player.hand.map(() => ({ ...HIDDEN_CARD })) }
+        ? { ...player, hand: player.hand.map(() => ({ ...HIDDEN_CARD })), prizeContents: undefined }
         : player
     )),
     prompts: view.prompts.map((prompt) => maskPrompt(prompt, seat)),

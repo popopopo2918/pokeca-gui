@@ -52,6 +52,8 @@ type BridgeResponse = {
   undoCount?: number;
   /** Both players' actual hands from the engine's spectator feed (null after an undo). */
   trueHands?: Record<string, CabtCard[]> | null;
+  /** Both players' remaining prize cards from the spectator feed (null after an undo). */
+  truePrizes?: Record<string, CabtCard[]> | null;
   cards?: CabtCardData[];
   attacks?: CabtAttack[];
 };
@@ -130,6 +132,7 @@ export class LocalEngineController {
   private pendingRetreatTarget: PendingRetreatTarget | null = null;
   private knownHands = new Map<number, CabtCard[]>();
   private trueHands: Record<string, CabtCard[]> | null = null;
+  private truePrizes: Record<string, CabtCard[]> | null = null;
   private replayFrames: CabtObservation[] = [];
   private replayPlayerLabels: [string, string] = ['Player 1', 'Player 2'];
   private replayModeLabel = 'Self vs Agent';
@@ -561,6 +564,8 @@ export class LocalEngineController {
     // Fresh spectator hands must be in place before the animation frames are built,
     // so a card gained mid-response (e.g., a taken prize) shows face-up in them too.
     this.trueHands = response.trueHands ?? null;
+    // サイドの実体も観戦フィード由来。undo後は再抽選されるため null に戻る。
+    this.truePrizes = response.truePrizes ?? null;
     this.pendingSequence = [...this.pendingSequence, ...this.appendTimeline(response)];
     this.recordReplayFrames(response);
     this.observation = this.withKnownHands(response.observation ?? null);
@@ -619,7 +624,20 @@ export class LocalEngineController {
   }
 
   private view() {
-    return cabtObservationToGameView(this.observation, this.logs, this.dataMaps, this.actionTimeline);
+    const view = cabtObservationToGameView(this.observation, this.logs, this.dataMaps, this.actionTimeline);
+    // 自分のサイドの「中身一覧」用（GetBattleDataではサイドは常に非公開のため観戦フィードで補う）。
+    // 名前順に並べ替えて返すので、どの位置がどのカードかは分からない＝取る時のランダム性は保たれる。
+    if (this.truePrizes) {
+      for (const player of view.players) {
+        const cards = this.truePrizes[String(player.index)];
+        if (cards) {
+          player.prizeContents = cards
+            .map((card) => cabtCardToView(card, this.dataMaps))
+            .sort((a, b) => (a.fullName ?? a.name ?? '').localeCompare(b.fullName ?? b.name ?? '', 'ja'));
+        }
+      }
+    }
+    return view;
   }
 
   private recordReplayFrames(response: BridgeResponse): void {
@@ -879,6 +897,7 @@ export class LocalEngineController {
     this.pendingRetreatTarget = null;
     this.knownHands.clear();
     this.trueHands = null;
+    this.truePrizes = null;
     this.actionTimeline = [];
     this.timelineId = 1;
     this.pendingSequence = [];

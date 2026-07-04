@@ -13,6 +13,8 @@
     bottomDiscardPileElement?: HTMLButtonElement;
     showLostZone: (player: PlayerView) => void;
     showDiscard: (player: PlayerView) => void;
+    canInspectPrizes?: (player: PlayerView) => boolean;
+    showPrizes?: (player: PlayerView) => void;
   };
 
   let {
@@ -26,6 +28,8 @@
     bottomDiscardPileElement = $bindable(),
     showLostZone,
     showDiscard,
+    canInspectPrizes = () => false,
+    showPrizes,
   }: Props = $props();
 
   function deckPileStyle(deckCount: number, direction: -1 | 1) {
@@ -66,11 +70,19 @@
         {/if}
         <span class="pile-count">{topPlayer.lostZone.length}</span>
       </button>
-      <div class="prize-grid" title={`${topPlayer.name} prizes`} aria-label={`${topPlayer.name} prizes`}>
+      <button
+        type="button"
+        class="prize-grid"
+        class:inspectable={canInspectPrizes(topPlayer)}
+        disabled={!canInspectPrizes(topPlayer)}
+        title={canInspectPrizes(topPlayer) ? 'サイドの中身を確認（順不同）' : `${topPlayer.name} prizes`}
+        aria-label={canInspectPrizes(topPlayer) ? 'サイドの中身を確認' : `${topPlayer.name} prizes`}
+        onclick={() => showPrizes?.(topPlayer)}
+      >
         {#each visiblePrizeCards(topPlayer.prizesLeft) as index}
           <span style={`--row: ${Math.floor(index / 2)}; --col: ${index % 2};`}></span>
         {/each}
-      </div>
+      </button>
     </div>
     <div class="right-field">
       <div class="right-piles">
@@ -115,11 +127,19 @@
         {/if}
         <span class="pile-count">{bottomPlayer.lostZone.length}</span>
       </button>
-      <div class="prize-grid" title={`${bottomPlayer.name} prizes`} aria-label={`${bottomPlayer.name} prizes`}>
+      <button
+        type="button"
+        class="prize-grid"
+        class:inspectable={canInspectPrizes(bottomPlayer)}
+        disabled={!canInspectPrizes(bottomPlayer)}
+        title={canInspectPrizes(bottomPlayer) ? 'サイドの中身を確認（順不同）' : `${bottomPlayer.name} prizes`}
+        aria-label={canInspectPrizes(bottomPlayer) ? 'サイドの中身を確認' : `${bottomPlayer.name} prizes`}
+        onclick={() => showPrizes?.(bottomPlayer)}
+      >
         {#each visiblePrizeCards(bottomPlayer.prizesLeft) as index}
           <span style={`--row: ${Math.floor(index / 2)}; --col: ${index % 2};`}></span>
         {/each}
-      </div>
+      </button>
     </div>
     <div class="right-field">
       <div class="right-piles">
@@ -410,6 +430,24 @@
     outline: 2px solid rgba(250, 204, 21, 0.9);
     outline-offset: 4px;
     background: rgba(250, 204, 21, 0.08);
+  }
+
+  /* ボタン化してもレイアウトは div の頃と同一に保つ */
+  button.prize-grid {
+    border: 0;
+    background: none;
+    padding: 0;
+    cursor: default;
+  }
+  button.prize-grid:disabled {
+    opacity: 1;
+  }
+  .prize-grid.inspectable {
+    cursor: pointer;
+  }
+  .prize-grid.inspectable:hover span {
+    border-color: var(--accent-base);
+    box-shadow: 0 0 8px rgba(77, 141, 255, 0.45);
   }
 
   .prize-grid span {

@@ -113,6 +113,8 @@ export type PlayerView = {
   stadium: CardView[];
   playZone: CardView[];
   prizesLeft: number;
+  /** 自分のサイドの中身一覧（名前順・位置情報なし）。観戦フィードが使えない時（undo後など）は undefined。 */
+  prizeContents?: CardView[];
   active: PokemonSlotView;
   bench: PokemonSlotView[];
   playableCardIds: number[];
