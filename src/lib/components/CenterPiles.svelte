@@ -442,8 +442,13 @@
     background: rgba(250, 204, 21, 0.08);
   }
 
-  /* 自分のサイドの中身を開く明示ボタン（束クリックと同じ動作） */
+  /* 自分のサイドの中身を開く明示ボタン（束クリックと同じ動作）。
+     盤面の山類は投影クリック機構のため pointer-events:none だが、
+     このボタンは通常のクリックを受けるので明示的に有効化する。 */
   .prize-inspect {
+    pointer-events: auto;
+    position: relative;
+    z-index: 3;
     margin-top: 6px;
     padding: 4px 11px;
     border: 1px solid rgba(77, 141, 255, 0.5);
@@ -474,6 +479,7 @@
   }
   .prize-grid.inspectable {
     cursor: pointer;
+    pointer-events: auto;
   }
   .prize-grid.inspectable:hover span {
     border-color: var(--accent-base);
