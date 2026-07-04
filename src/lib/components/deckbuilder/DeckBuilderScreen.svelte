@@ -205,9 +205,14 @@
     background: var(--app-backdrop-bg);
     color: var(--app-text);
   }
-  /* マウスオーバー拡大はギャラリーより手前に出す */
+  /* マウスオーバー拡大は画面中央（ギャラリーと編成パネルの間の空き）に大きく出す */
   .screen :global(.card-zoom) {
     z-index: 60;
+    top: 50%;
+    left: 52%;
+    transform: translate(-50%, -50%);
+    width: clamp(240px, 26vw, 380px);
+    pointer-events: none;
   }
 
   .bar {
