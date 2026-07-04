@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { cardPreviewStore } from '../../../state/cardPreview.svelte';
   import type { CatalogCard, DeckValidation } from '../../cards/cardCatalog';
   import { DECK_SIZE } from '../../cards/cardCatalog';
   import type { DeckGroups } from '../../../state/deckBuilder.svelte';
@@ -16,6 +17,35 @@
     onsave: () => void;
     onclear: () => void;
   };
+  // 対戦中と同じマウスオーバー拡大（CardZoom は DeckBuilderScreen 側で表示）
+  const hoverOwners = new Map<number, object>();
+  function ownerFor(id: number): object {
+    let owner = hoverOwners.get(id);
+    if (!owner) {
+      owner = {};
+      hoverOwners.set(id, owner);
+    }
+    return owner;
+  }
+  function hoverCard(card: CatalogCard) {
+    cardPreviewStore.set({
+      id: card.id,
+      name: card.nameJa,
+      fullName: card.nameJa,
+      set: card.set,
+      setNumber: card.setNumber,
+      imageUrl: card.imageUrl,
+    }, ownerFor(card.id));
+  }
+  function unhoverCard(id: number) {
+    cardPreviewStore.clear(ownerFor(id));
+  }
+  $effect(() => () => {
+    for (const owner of hoverOwners.values()) {
+      cardPreviewStore.clear(owner);
+    }
+  });
+
   let {
     deckName,
     groups,
@@ -69,7 +99,12 @@
       {#if groups[section.key].length}
         <h4>{section.label} <span>{validation.byCategory[section.key]}</span></h4>
         {#each groups[section.key] as { card, count } (card.id)}
-          <div class="row">
+          <div
+            class="row"
+            role="presentation"
+            onmouseenter={() => hoverCard(card)}
+            onmouseleave={() => unhoverCard(card.id)}
+          >
             <button class="thumb" onclick={() => oninspect(card)} title="詳細">
               <img src={card.imageUrl ?? '/assets/cardback.png'} alt={card.nameJa} loading="lazy" />
             </button>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { cardPreviewStore } from '../../../state/cardPreview.svelte';
   import type { CatalogCard } from '../../cards/cardCatalog';
 
   type Props = {
@@ -13,9 +14,30 @@
   let failed = $state(false);
   let src = $derived(failed || !card.imageUrl ? '/assets/cardback.png' : card.imageUrl);
   let atLimit = $derived(count >= card.copyLimit);
+
+  // 対戦中と同じマウスオーバー拡大（CardZoom は DeckBuilderScreen 側で表示）
+  const previewOwner = {};
+  $effect(() => () => cardPreviewStore.clear(previewOwner));
+
+  function previewEnter() {
+    cardPreviewStore.set({
+      id: card.id,
+      name: card.nameJa,
+      fullName: card.nameJa,
+      set: card.set,
+      setNumber: card.setNumber,
+      imageUrl: card.imageUrl,
+    }, previewOwner);
+  }
 </script>
 
-<div class="thumb" class:in-deck={count > 0}>
+<div
+  class="thumb"
+  class:in-deck={count > 0}
+  role="presentation"
+  onmouseenter={previewEnter}
+  onmouseleave={() => cardPreviewStore.clear(previewOwner)}
+>
   <button class="art" onclick={onadd} disabled={atLimit} title={`${card.nameJa} を追加`}>
     <img {src} alt={card.nameJa} loading="lazy" decoding="async" onerror={() => (failed = true)} />
     {#if count > 0}<span class="count">{count}</span>{/if}

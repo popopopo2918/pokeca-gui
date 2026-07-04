@@ -4,6 +4,7 @@
   import DeckPanel from './DeckPanel.svelte';
   import DeckLibrary from './DeckLibrary.svelte';
   import CardDetailModal from './CardDetailModal.svelte';
+  import CardZoom from '../CardZoom.svelte';
   import { getCatalog, resolveDeckTextEntries, type CatalogCard } from '../../cards/cardCatalog';
   import { deckBuilderStore } from '../../../state/deckBuilder.svelte';
 
@@ -191,6 +192,7 @@
   {/if}
 
   {#if toast}<div class="toast">{toast}</div>{/if}
+  <CardZoom />
 </div>
 
 <style>
@@ -203,6 +205,11 @@
     background: var(--app-backdrop-bg);
     color: var(--app-text);
   }
+  /* マウスオーバー拡大はギャラリーより手前に出す */
+  .screen :global(.card-zoom) {
+    z-index: 60;
+  }
+
   .bar {
     flex: none;
     display: flex;
