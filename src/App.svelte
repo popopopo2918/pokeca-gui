@@ -2115,23 +2115,45 @@
 
   .replay-loading-panel {
     display: grid;
-    gap: 8px;
-    width: min(420px, calc(100vw - 32px));
-    padding: 16px;
-    border-radius: 8px;
-    border: 1px solid rgba(26, 31, 39, 0.16);
-    background: #f7f8fa;
-    color: #1d232b;
-    box-shadow: 0 12px 32px rgba(12, 15, 19, 0.18);
+    gap: 10px;
+    width: min(440px, calc(100vw - 32px));
+    padding: 18px;
+    border-radius: 12px;
+    border: 1px solid var(--surface-glass-border);
+    background: var(--surface-glass-bg);
+    color: var(--text-primary);
+    box-shadow: var(--surface-glass-shadow, 0 12px 32px rgba(12, 15, 19, 0.4));
   }
 
   .replay-loading-panel strong {
-    font-size: 14px;
+    font-size: 15px;
+    color: var(--text-primary);
   }
 
   .replay-loading-panel span {
-    color: #566272;
+    color: var(--text-secondary);
     font-size: 13px;
+  }
+
+  .replay-loading-panel :global(.online-code) {
+    font-size: 22px;
+    letter-spacing: 0.14em;
+    color: var(--accent-base);
+  }
+
+  .replay-loading-panel button {
+    justify-self: start;
+    margin-top: 6px;
+    padding: 10px 18px;
+    border: 1px solid var(--button-border);
+    border-radius: 9px;
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-weight: 700;
+  }
+
+  .replay-loading-panel button:hover {
+    border-color: var(--accent-base);
   }
 
 </style>
