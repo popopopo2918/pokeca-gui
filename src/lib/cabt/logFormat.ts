@@ -238,9 +238,12 @@ export type JaMoveInfo = { name: string; text: string; damage: string };
 
 // Japanese Ability/Attack display data for a card. In the JP data, `moves` lists Abilities first
 // (name prefixed "[特性]") then Attacks, matching the English skills[]/attacks[] order.
-export function japaneseCardMoves(id: number): { abilities: JaMoveInfo[]; attacks: JaMoveInfo[] } {
+// テラスタルポケモンは先頭に「テラスタル」のルール枠（ワザでも特性でもない）が入るため、
+// attacks に混ぜると英語側 attacks[] と1つずれる。専用フィールドに分離する。
+export function japaneseCardMoves(id: number): { abilities: JaMoveInfo[]; attacks: JaMoveInfo[]; terastal?: JaMoveInfo } {
   const abilities: JaMoveInfo[] = [];
   const attacks: JaMoveInfo[] = [];
+  let terastal: JaMoveInfo | undefined;
   for (const move of jaCards[String(id)]?.moves ?? []) {
     const raw = (move?.name ?? '').trim();
     const info: JaMoveInfo = {
@@ -250,11 +253,13 @@ export function japaneseCardMoves(id: number): { abilities: JaMoveInfo[]; attack
     };
     if (raw.startsWith('[特性]')) {
       abilities.push(info);
+    } else if (raw === 'テラスタル') {
+      terastal = info;
     } else {
       attacks.push(info);
     }
   }
-  return { abilities, attacks };
+  return { abilities, attacks, terastal };
 }
 
 export function japaneseAttackName(id: number): string {

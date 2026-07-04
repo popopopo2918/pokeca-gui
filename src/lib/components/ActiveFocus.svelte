@@ -239,6 +239,12 @@
 
         <div class="focus-actions">
           <div class="action-stack">
+            {#if jaMoves.terastal}
+              <div class="terastal-rule">
+                <span class="terastal-tag">テラスタル</span>
+                <span class="terastal-text">{jaMoves.terastal.text}</span>
+              </div>
+            {/if}
             {#if pokemon.powers?.length}
               <div class="action-group">
                 <span>特性</span>
@@ -642,6 +648,31 @@
     display: grid;
     gap: 7px;
     align-content: start;
+  }
+
+  /* テラスタルのルール枠（ワザ・特性とは別物なので操作不可の注記として出す） */
+  .terastal-rule {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    border: 1px solid color-mix(in srgb, #d9a441 45%, transparent);
+    background: color-mix(in srgb, #d9a441 10%, transparent);
+  }
+
+  .terastal-tag {
+    flex: none;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #d9a441;
+  }
+
+  .terastal-text {
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--text-secondary, #b8c0cc);
   }
 
   .action-card {

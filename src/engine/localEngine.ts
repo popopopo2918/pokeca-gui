@@ -171,7 +171,7 @@ export class LocalEngineController {
           this.assertMainSelect();
           return await this.selectMatchingOption((option) => option.area === CabtAreaType.STADIUM);
         case 'concede':
-          return { ok: false, error: 'このCABTエンジンでは投了は使用できません。', view: this.view() };
+          return this.concede(Number(command.payload?.playerIndex));
         case 'retreat':
           this.assertMainSelect();
           return await this.retreat(command.payload);
@@ -584,6 +584,38 @@ export class LocalEngineController {
   /** Current view snapshot (used by the online-room layer for turn checks/serving). */
   currentGameView() {
     return this.view();
+  }
+
+  // CABTエンジン自体には投了コマンドがないため、GUI側で勝敗を確定して
+  // 対戦終了扱いにする（result=相手側で converter が「対戦終了」を組み立てる）。
+  private concede(playerIndex: number): EngineResponse {
+    if (playerIndex !== 0 && playerIndex !== 1) {
+      return { ok: false, error: '投了するプレイヤーを特定できませんでした。', view: this.view() };
+    }
+    if (!this.observation?.current) {
+      return { ok: false, error: '対戦が開始されていません。', view: this.view() };
+    }
+    if (this.observation.current.result >= 0) {
+      return this.viewResponse();
+    }
+    const winner = playerIndex === 0 ? 1 : 0;
+    const timeline = cabtLogsToTimeline(
+      [{ type: CabtLogType.RESULT, playerIndex: winner }],
+      { nextId: this.timelineId },
+    );
+    this.timelineId = timeline.nextId;
+    this.actionTimeline = [...this.actionTimeline, ...timeline.events];
+    this.logs = [...this.logs, {
+      id: this.logId++,
+      message: `プレイヤー${playerIndex + 1}が投了した。プレイヤー${winner + 1}の勝ち。`,
+    }];
+    this.pendingRetreatTarget = null;
+    this.observation = {
+      ...this.observation,
+      select: null,
+      current: { ...this.observation.current, result: winner },
+    };
+    return this.viewResponse();
   }
 
   private view() {
