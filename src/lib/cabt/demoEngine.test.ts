@@ -546,10 +546,12 @@ describe('cabtObservationToGameView', () => {
 
     expect(prompt?.className).toBe('ChoosePrizePrompt');
     expect(prompt?.message).toBe('サイドを選ぶ');
+    // サイドは非公開情報: エンジンが実カードIDを渡してきても表示用には出さない
+    // （中身が見えてしまう不具合の回帰防止。選択は位置インデックスで解決される）
     expect(prompt?.fields.prizes).toEqual([
       {
         index: 0,
-        cards: [expect.objectContaining({ name: 'Switch' })],
+        cards: [],
       },
     ]);
   });

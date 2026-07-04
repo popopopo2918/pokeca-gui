@@ -589,13 +589,13 @@ function buildPrompts(observation: CabtObservation, activePlayerIndex: number, d
         message: 'サイドを選ぶ',
         resultSchema: 'optionIndexes',
         fields: {
-          prizes: select.option.map((option, optionIndex) => {
-            const optionCard = cardForOption(option, observation, optionIndex);
-            return {
-              index: optionIndex,
-              cards: optionCard ? [cardToView(optionCard, dataMaps)] : [],
-            };
-          }),
+          // サイドは本来「裏向きの非公開情報」。エンジンは実カードIDを含めてくるが、
+          // 表示すると中身が見えてしまうため、カード情報は渡さず裏向きで描画させる
+          // （選択は位置インデックスで解決されるので挙動は変わらない）。
+          prizes: select.option.map((_option, optionIndex) => ({
+            index: optionIndex,
+            cards: [],
+          })),
           options: promptSelectionOptions(select),
           cabtSelect: select,
         },

@@ -41,53 +41,112 @@
 }
 
 /* ============================================================
-   メニュー・デッキ編成の背景＝Canva制作のスタジオライト素材
-   （上からの微光＋粒子。暗色オーバーレイでUIとカードの可読性を担保。
-     対戦中の画面には適用しない）
+   ピル型コントロール＝フラット精密
+   （光沢グラデは安く見えるため使わない。無地の面＋正確な1px線＋
+     ホバー時だけ青のフォーカスリングが灯る）
    ============================================================ */
-[data-skin='broadcast'] .import-screen {
-  background:
-    linear-gradient(180deg, rgba(9, 12, 17, 0.2), rgba(9, 12, 17, 0.62) 55%, rgba(9, 12, 17, 0.85)),
-    url('/assets/backdrop-broadcast.jpg') center top / cover no-repeat fixed,
-    #0b0e14;
-}
-[data-skin='broadcast'] .screen {
-  background:
-    linear-gradient(180deg, rgba(9, 12, 17, 0.42), rgba(9, 12, 17, 0.72) 55%, rgba(9, 12, 17, 0.88)),
-    url('/assets/backdrop-broadcast.jpg') center top / cover no-repeat fixed,
-    #0b0e14;
+[data-skin='broadcast'] :is(.screen .back, .app-header .cluster) {
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: #141a24;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
-/* ============================================================
-   ピル型コントロール＝グラデーションリング
-   （「← 対戦へ」やヘッダーの丸枠など。均一な1px線ではなく、
-     上端が明るく下端が青みに落ちる金属的なリングで縁取る）
-   ============================================================ */
-[data-skin='broadcast'] :is(.screen .back, .app-header .cluster, .app-header .nav-btn) {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(180deg, #1b2231, #131926) padding-box,
-    linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.06) 45%, rgba(77, 141, 255, 0.38)) border-box;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 14px rgba(0, 0, 0, 0.4);
+[data-skin='broadcast'] .screen .back {
+  color: #cdd5e1;
+  transition: border-color 0.13s ease, color 0.13s ease, box-shadow 0.13s ease;
+}
+[data-skin='broadcast'] .screen .back:hover {
+  border-color: rgba(77, 141, 255, 0.6);
+  color: #edf1f7;
+  box-shadow: 0 0 0 3px rgba(77, 141, 255, 0.12), 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
 [data-skin='broadcast'] .app-header .nav-btn {
-  background:
-    linear-gradient(180deg, rgba(77, 141, 255, 0.24), rgba(77, 141, 255, 0.1)) padding-box,
-    linear-gradient(180deg, rgba(157, 192, 255, 0.55), rgba(77, 141, 255, 0.2) 45%, rgba(77, 141, 255, 0.55)) border-box;
+  border: 1px solid rgba(77, 141, 255, 0.5);
+  background: rgba(77, 141, 255, 0.1);
   color: #dbe7ff;
+  transition: border-color 0.13s ease, background 0.13s ease, box-shadow 0.13s ease;
 }
-
-[data-skin='broadcast'] .screen .back:hover,
 [data-skin='broadcast'] .app-header .nav-btn:hover {
-  filter: brightness(1.12);
+  border-color: rgba(77, 141, 255, 0.85);
+  background: rgba(77, 141, 255, 0.18);
+  box-shadow: 0 0 0 3px rgba(77, 141, 255, 0.12);
 }
 
-/* 小さなチップ（VS・枚数バッジ・カード名プレート等）＝控えめな同系リング */
+/* 小さなチップ（VS・枚数バッジ・カード名プレート等）＝フラットな面で統一 */
 [data-skin='broadcast'] :is(.vs span, .preview-name, .log-count, .sec-count, .hand-sort) {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+}
+
+/* ============================================================
+   ホバー演出＝主要ボタンに「光が一度走る」スイープを統一適用
+   （対戦開始と同じ質感。無効時・視差軽減設定では出ない）
+   ============================================================ */
+[data-skin='broadcast'] :is(
+  .table-toolbar button.turn-end,
+  .prompt-panel button.primary,
+  .panel .apply .primary,
+  .online-actions button,
+  .app-header .nav-btn,
+  .screen .back,
+  .code-import button,
+  .log-toolbar > button,
+  .prompt-panel-collapsed button
+) {
+  position: relative;
+  overflow: hidden;
+}
+[data-skin='broadcast'] :is(
+  .table-toolbar button.turn-end,
+  .prompt-panel button.primary,
+  .panel .apply .primary,
+  .online-actions button,
+  .app-header .nav-btn,
+  .screen .back,
+  .code-import button,
+  .log-toolbar > button,
+  .prompt-panel-collapsed button
+)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 30%;
+  transform: skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.13), transparent);
+  pointer-events: none;
+  transition: left 0.5s ease;
+}
+[data-skin='broadcast'] :is(
+  .table-toolbar button.turn-end,
+  .prompt-panel button.primary,
+  .panel .apply .primary,
+  .online-actions button,
+  .app-header .nav-btn,
+  .screen .back,
+  .code-import button,
+  .log-toolbar > button,
+  .prompt-panel-collapsed button
+):hover:not(:disabled)::after {
+  left: 115%;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-skin='broadcast'] :is(
+    .table-toolbar button.turn-end,
+    .prompt-panel button.primary,
+    .panel .apply .primary,
+    .online-actions button,
+    .app-header .nav-btn,
+    .screen .back,
+    .code-import button,
+    .log-toolbar > button,
+    .prompt-panel-collapsed button
+  )::after {
+    display: none;
+  }
 }
 
 /* ============================================================

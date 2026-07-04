@@ -1,6 +1,39 @@
 {
   "logs": [
     {
+      "id": "local-20260703022416",
+      "name": "Local 自分 vs AI 2026/7/3 11:24:16",
+      "file": "local-20260703022416.json",
+      "createdAt": "2026-07-03T02:24:16.362Z",
+      "players": [
+        "Player 1",
+        "Player 2"
+      ],
+      "description": "Saved local 自分 vs AI match."
+    },
+    {
+      "id": "local-20260703012601",
+      "name": "Local 自分 vs AI 2026/7/3 10:26:01",
+      "file": "local-20260703012601.json",
+      "createdAt": "2026-07-03T01:26:01.182Z",
+      "players": [
+        "Player 1",
+        "Player 2"
+      ],
+      "description": "Saved local 自分 vs AI match, result 0."
+    },
+    {
+      "id": "local-20260703011527",
+      "name": "Local 自分 vs AI 2026/7/3 10:15:27",
+      "file": "local-20260703011527.json",
+      "createdAt": "2026-07-03T01:15:27.903Z",
+      "players": [
+        "Player 1",
+        "Player 2"
+      ],
+      "description": "Saved local 自分 vs AI match, result 0."
+    },
+    {
       "id": "local-20260627092614",
       "name": "Local Agent vs Agent 6/27/2026, 6:26:14 PM",
       "file": "local-20260627092614.json",
