@@ -470,3 +470,19 @@ function playerState(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe('concede', () => {
+  process.env.CABT_ENGINE_MODE = 'demo';
+
+  it('ends the game with the opponent as winner (投了リグレッション)', async () => {
+    const engine = new LocalEngineController();
+    let res = await engine.handle({ type: 'startGame' });
+    expect(res.ok).toBe(true);
+
+    res = await engine.handle({ type: 'concede', payload: { playerIndex: 0 } });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.view.winner).toBe(1);
+    expect(res.view.phaseLabel).toBe('対戦終了');
+  });
+});

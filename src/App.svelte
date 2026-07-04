@@ -1212,12 +1212,18 @@
     await gameSessionStore.run(() => commandApi.useStadium(activePlayer.index));
   }
 
-  async function concede() {
+  // window.confirm は HF Space ページの iframe 埋め込みだとブラウザにブロックされ
+  // 無言で false になる（＝投了が「押しても何も起きない」）。アプリ内ダイアログで確認する。
+  let concedeConfirmOpen = $state(false);
+
+  function concede() {
     if (!game || !activePlayer || gameFinished) return;
-    // Guard against a stray click ending a long test match.
-    if (!window.confirm(`${activePlayer.name} が投了して対戦を終了します。よろしいですか？`)) {
-      return;
-    }
+    concedeConfirmOpen = true;
+  }
+
+  async function doConcede() {
+    concedeConfirmOpen = false;
+    if (!game || !activePlayer || gameFinished) return;
     await gameSessionStore.run(() => commandApi.concede(game.activePlayerIndex));
   }
 
@@ -1718,6 +1724,18 @@
 
 <svelte:window onkeydown={handleGlobalKeydown} />
 <CardZoom />
+{#if concedeConfirmOpen}
+  <div class="concede-backdrop" role="dialog" aria-modal="true" aria-label="投了の確認">
+    <div class="concede-box">
+      <strong>投了しますか？</strong>
+      <p>{activePlayer?.name ?? ''} が投了して、この対戦を終了します。</p>
+      <div class="concede-actions">
+        <button type="button" onclick={() => (concedeConfirmOpen = false)}>やめる</button>
+        <button type="button" class="concede-go" onclick={doConcede}>投了する</button>
+      </div>
+    </div>
+  </div>
+{/if}
 {#if agentManagerOpen}
   <AgentManagerModal
     profile={activeProfile}
@@ -2154,6 +2172,65 @@
 
   .replay-loading-panel button:hover {
     border-color: var(--accent-base);
+  }
+
+  /* 投了の確認ダイアログ（window.confirm の代替。iframe 埋め込みでも必ず出る） */
+  .concede-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: grid;
+    place-items: center;
+    background: rgba(5, 8, 12, 0.6);
+    backdrop-filter: blur(2px);
+  }
+
+  .concede-box {
+    display: grid;
+    gap: 10px;
+    width: min(360px, calc(100vw - 48px));
+    padding: 20px 22px;
+    border-radius: 14px;
+    border: 1px solid var(--surface-glass-border);
+    background: var(--surface-glass-bg);
+    box-shadow: var(--surface-glass-shadow);
+    color: var(--text-primary);
+  }
+
+  .concede-box strong {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .concede-box p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .concede-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .concede-actions button {
+    padding: 9px 16px;
+    border-radius: 9px;
+    border: 1px solid var(--button-border);
+    background: var(--button-bg);
+    color: var(--button-text);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .concede-actions .concede-go {
+    border-color: var(--danger-border);
+    background: var(--danger-bg);
+    color: var(--danger-strong);
+    font-weight: 800;
   }
 
 </style>

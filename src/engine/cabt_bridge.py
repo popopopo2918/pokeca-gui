@@ -432,8 +432,9 @@ class Session:
         try:
             raw = visualize_data()
             # The feed is a JSON array of every frame since battle start; only the last
-            # frame is needed, so slice it out instead of parsing the whole history.
-            frame = json.loads(raw[raw.rindex('{"select"'):-1])
+            # frame is needed. raw_decode は開始位置から1オブジェクト分だけ読むので、
+            # 末尾に ] や改行が付いていてもパースが壊れない（以前は [:-1] 前提で沈黙死）。
+            frame = json.JSONDecoder().raw_decode(raw, raw.rindex('{"select"'))[0]
             players = (frame.get("current") or {}).get("players") or []
             return {str(index): (player.get("hand") or []) for index, player in enumerate(players)}
         except Exception:
@@ -445,10 +446,10 @@ class Session:
             "observation": self.obs,
             "autoSteps": auto_steps or [],
             "undoCount": self.undo_count(),
-            # Multi-step responses replay the opponent's turn as animation frames; those
-            # frames need real hands too (e.g., a just-taken prize card in your hand),
-            # so fetch the spectator hands whenever auto-play happened.
-            "trueHands": self.true_hands(force=bool(auto_steps and len(auto_steps) > 1)),
+            # 何かしら盤面が動いた応答（auto_steps あり）は毎回観戦フィードで実手札を取り直す。
+            # 枚数ベースの stale 判定だけだと「枚数同じで中身だけ変わる」手札干渉
+            # （マリィ/ジャッジマン等）を見逃し、古い手札や未公開グレーが表示される。
+            "trueHands": self.true_hands(force=bool(auto_steps)),
         }
         # The full card/attack database is large; ship it once per battle, not on
         # every command (the client keeps the maps from the start response).

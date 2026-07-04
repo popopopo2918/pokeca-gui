@@ -66,3 +66,34 @@ describe('CABT log formatting', () => {
     ]);
   });
 });
+
+describe('japaneseCardMoves', () => {
+  it('excludes the Terastal rule box from attacks (Dragapult ex regression)', async () => {
+    const { japaneseCardMoves } = await import('./logFormat');
+    const moves = japaneseCardMoves(121);
+    expect(moves.terastal?.name).toBe('テラスタル');
+    expect(moves.attacks.map((a) => a.name)).toEqual(['ジェットヘッド', 'ファントムダイブ']);
+    expect(moves.attacks[1]?.damage).toBe('200');
+  });
+
+  it('aligns JA attack lists with EN attacks for every Pokemon card (all Terastal cards included)', async () => {
+    const { japaneseCardMoves } = await import('./logFormat');
+    const cardRows = (await import('./cardData.generated.json')).default as Array<{
+      id: number; attacks?: number[]; cardType?: number;
+    }>;
+    const jaRows = (await import('../cards/cardsJa.generated.json')).default as Record<
+      string, { moves?: unknown[] }
+    >;
+    let terastalCount = 0;
+    for (const card of cardRows) {
+      if (card.cardType !== 0) continue;
+      const ja = jaRows[String(card.id)];
+      if (!ja?.moves?.length) continue;
+      const moves = japaneseCardMoves(card.id);
+      if (moves.terastal) terastalCount += 1;
+      // ここがズレると「テラスタルがワザ扱い・実ワザ欠落」が再発する
+      expect(moves.attacks.length, `card ${card.id}`).toBe(card.attacks?.length ?? 0);
+    }
+    expect(terastalCount).toBeGreaterThanOrEqual(30);
+  });
+});

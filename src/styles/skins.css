@@ -40,6 +40,36 @@
   background: radial-gradient(1100px 480px at 50% -10%, #131a26, #0b0e14 65%);
 }
 
+/* ============================================================
+   タイポグラフィ: 見出し・テロップは Zen Kaku Gothic New、
+   数字（HP・枚数・ダメージ）は放送テロップ風の Barlow Condensed。
+   読み込めない環境では Noto Sans JP 系へ自然にフォールバックする。
+   ============================================================ */
+[data-skin='broadcast'] {
+  --font-display: 'Zen Kaku Gothic New', 'Noto Sans JP', system-ui, sans-serif;
+  --font-numeric: 'Barlow Condensed', 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif;
+}
+
+[data-skin='broadcast'] .turn-banner,
+[data-skin='broadcast'] .game-status,
+[data-skin='broadcast'] .table-toolbar button.turn-end,
+[data-skin='broadcast'] .import-screen h2,
+[data-skin='broadcast'] .import-screen .eyebrow,
+[data-skin='broadcast'] .player-tag,
+[data-skin='broadcast'] .import-screen .primary.start,
+[data-skin='broadcast'] .screen h1 {
+  font-family: var(--font-display);
+}
+
+[data-skin='broadcast'] .hand-count,
+[data-skin='broadcast'] .attack-damage,
+[data-skin='broadcast'] .strip-meta b,
+[data-skin='broadcast'] .screen .total,
+[data-skin='broadcast'] .online-code {
+  font-family: var(--font-numeric);
+  letter-spacing: 0.03em;
+}
+
 /* アプリヘッダー＝静かな番組バー（下端に細いブルーライン） */
 [data-skin='broadcast'] .app-header {
   background: rgba(9, 12, 17, 0.96);
