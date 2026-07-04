@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { resolveDeckTextEntries } from '../cards/cardCatalog';
+  import CardZoom from './CardZoom.svelte';
+  import { cardPreviewStore } from '../../state/cardPreview.svelte';
+  import { resolveDeckTextEntries, type CatalogCard } from '../cards/cardCatalog';
 
   type Props = {
     title: string;
@@ -11,6 +13,40 @@
 
   let entries = $derived(resolveDeckTextEntries(deckText));
   let totalCount = $derived(entries.reduce((sum, entry) => sum + entry.count, 0));
+
+  // 対戦中と同じマウスオーバー拡大。カード枠ごとに所有トークンを持たせる
+  // （隣のカードへ移った時の enter→leave 順序ずれで消えないように）。
+  const hoverOwners = new Map<number, object>();
+  function ownerFor(index: number): object {
+    let owner = hoverOwners.get(index);
+    if (!owner) {
+      owner = {};
+      hoverOwners.set(index, owner);
+    }
+    return owner;
+  }
+
+  function hoverCard(card: CatalogCard | undefined, index: number) {
+    if (!card) return;
+    cardPreviewStore.set({
+      id: card.id,
+      name: card.nameJa,
+      fullName: card.nameJa,
+      set: card.set,
+      setNumber: card.setNumber,
+      imageUrl: card.imageUrl,
+    }, ownerFor(index));
+  }
+
+  function unhoverCard(index: number) {
+    cardPreviewStore.clear(ownerFor(index));
+  }
+
+  $effect(() => () => {
+    for (const owner of hoverOwners.values()) {
+      cardPreviewStore.clear(owner);
+    }
+  });
 </script>
 
 <div class="deck-preview-backdrop" role="presentation" onclick={onClose}>
@@ -23,8 +59,12 @@
       <p class="empty">デッキリストが空です。</p>
     {:else}
       <div class="deck-preview-grid">
-        {#each entries as entry}
-          <figure class:unresolved={!entry.card}>
+        {#each entries as entry, index}
+          <figure
+            class:unresolved={!entry.card}
+            onmouseenter={() => hoverCard(entry.card, index)}
+            onmouseleave={() => unhoverCard(index)}
+          >
             {#if entry.card?.imageUrl}
               <img src={entry.card.imageUrl} alt={entry.card.nameJa} loading="lazy" decoding="async" />
             {:else}
@@ -37,6 +77,7 @@
       </div>
     {/if}
   </section>
+  <CardZoom />
 </div>
 
 <style>
@@ -48,6 +89,11 @@
     place-items: center;
     background: rgba(10, 14, 20, 0.6);
     backdrop-filter: blur(3px);
+  }
+
+  /* 拡大プレビューはモーダルより手前に出す（CardZoom自体は z-index 28） */
+  .deck-preview-backdrop :global(.card-zoom) {
+    z-index: 60;
   }
 
   .deck-preview {
