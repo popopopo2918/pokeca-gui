@@ -1,5 +1,6 @@
 <script lang="ts">
   import DeckPreviewModal from './DeckPreviewModal.svelte';
+  import { TOURNAMENT_DECKS } from '../game/presetDecks';
   import type { AgentOption, GameLogEntry } from '../home/catalog';
   import type { PlayerControl } from '../game/httpClient';
 
@@ -142,6 +143,11 @@
             >
               <option value="import">デッキを貼り付け</option>
               <option value="preset:sample">フーディン（サンプルデッキ）</option>
+              <optgroup label="大会入賞デッキ">
+                {#each TOURNAMENT_DECKS as deck}
+                  <option value={`preset:${deck.id}`}>{deck.name}</option>
+                {/each}
+              </optgroup>
               {#if savedDecks.length}
                 <optgroup label="保存したデッキ（デッキ編成）">
                   {#each savedDecks as deck}
@@ -210,6 +216,11 @@
             >
               <option value="import">デッキを貼り付け</option>
               <option value="preset:sample">フーディン（サンプルデッキ）</option>
+              <optgroup label="大会入賞デッキ">
+                {#each TOURNAMENT_DECKS as deck}
+                  <option value={`preset:${deck.id}`}>{deck.name}</option>
+                {/each}
+              </optgroup>
               {#if savedDecks.length}
                 <optgroup label="保存したデッキ（デッキ編成）">
                   {#each savedDecks as deck}

@@ -6,6 +6,7 @@
   import { deckBuilderStore } from './state/deckBuilder.svelte';
   import { deckCountsToText } from './lib/cards/cardCatalog';
   import { SAMPLE_DECK } from './lib/game/deckImport';
+  import { findTournamentDeck } from './lib/game/presetDecks';
   import CardZoom from './lib/components/CardZoom.svelte';
   import AgentManagerModal from './lib/components/AgentManagerModal.svelte';
   import BoardLayer from './lib/components/BoardLayer.svelte';
@@ -457,6 +458,14 @@
     let text: string;
     if (source === 'preset:sample') {
       text = SAMPLE_DECK;
+    } else if (source.startsWith('preset:')) {
+      const preset = findTournamentDeck(source.slice('preset:'.length));
+      if (!preset) {
+        if (playerIndex === 0) player1DeckSource = 'import';
+        else player2DeckSource = 'import';
+        return;
+      }
+      text = deckCountsToText(preset.counts);
     } else {
       const deck = deckBuilderStore.library.find((item) => `deck:${item.id}` === source);
       if (!deck) {
