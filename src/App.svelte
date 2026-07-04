@@ -274,6 +274,9 @@
   onMount(() => {
     const stopThemeSync = viewSettingsStore.startThemeSync();
     deckBuilderStore.init();
+    // 起動時に選択済みのプリセット/保存デッキをデッキ欄へ展開する
+    fillDeckSourceText(player1DeckSource, 0);
+    fillDeckSourceText(player2DeckSource, 1);
     void initWorkspace();
     if (initialReplayMode) {
       void replayStore.loadSaved();
@@ -394,23 +397,28 @@
       player2DeckSource = selectedPlayer2Agent.id;
     }
   });
-  // 「デッキを貼り付け」の内容は、他のデッキへ切り替える時に退避し、戻ったら復元する。
+  // デッキ選択の変更を直接処理する:「貼り付け」の内容は退避/復元し、
+  // プリセット・保存デッキは即座にデッキ欄へ展開する。
   let prevDeckSource1 = player1DeckSource;
   let prevDeckSource2 = player2DeckSource;
-  $effect(() => {
-    const source = player1DeckSource;
-    if (source === prevDeckSource1) return;
-    if (prevDeckSource1 === 'import') deckImportStore.pasted1 = deckImportStore.deck1Text;
-    if (source === 'import') deckImportStore.deck1Text = deckImportStore.pasted1;
-    prevDeckSource1 = source;
-  });
-  $effect(() => {
-    const source = player2DeckSource;
-    if (source === prevDeckSource2) return;
-    if (prevDeckSource2 === 'import') deckImportStore.pasted2 = deckImportStore.deck2Text;
-    if (source === 'import') deckImportStore.deck2Text = deckImportStore.pasted2;
-    prevDeckSource2 = source;
-  });
+  function onDeckSourceChange(playerIndex: 0 | 1, source: string) {
+    const prev = playerIndex === 0 ? prevDeckSource1 : prevDeckSource2;
+    if (prev === source) {
+      return;
+    }
+    if (prev === 'import') {
+      if (playerIndex === 0) deckImportStore.pasted1 = deckImportStore.deck1Text;
+      else deckImportStore.pasted2 = deckImportStore.deck2Text;
+    }
+    if (source === 'import') {
+      if (playerIndex === 0) deckImportStore.deck1Text = deckImportStore.pasted1;
+      else deckImportStore.deck2Text = deckImportStore.pasted2;
+    } else {
+      fillDeckSourceText(source, playerIndex);
+    }
+    if (playerIndex === 0) prevDeckSource1 = source;
+    else prevDeckSource2 = source;
+  }
   $effect(() => {
     if (player1DeckSource.startsWith('deck:') || player1DeckSource.startsWith('preset:')) {
       return; // saved-deck/preset sources are filled by the saved-deck effect below
@@ -439,20 +447,10 @@
     }
     void loadSelectedDeck(deckUrl, player2DeckSource, 1);
   });
-  // 「デッキ編成」で保存したデッキを対戦画面の選択肢から直接使えるようにする。
-  $effect(() => {
-    applySavedDeckSource(player1DeckSource, 0);
-  });
-  $effect(() => {
-    applySavedDeckSource(player2DeckSource, 1);
-  });
 
-  function applySavedDeckSource(source: string, playerIndex: 0 | 1) {
-    if (!source.startsWith('deck:') && source !== 'preset:sample') {
-      return;
-    }
-    const lastLoaded = playerIndex === 0 ? lastLoadedPlayer1DeckSource : lastLoadedPlayer2DeckSource;
-    if (lastLoaded === source) {
+  // ドロップダウンで選ばれたプリセット/保存デッキの内容をデッキ欄へ書き込む。
+  function fillDeckSourceText(source: string, playerIndex: 0 | 1) {
+    if (!source.startsWith('deck:') && !source.startsWith('preset:')) {
       return;
     }
     let text: string;
@@ -1801,6 +1799,7 @@
           }
         }}
         startGame={startGame}
+        {onDeckSourceChange}
         createOnlineRoom={() => void createOnlineRoom()}
         joinOnlineRoom={(code) => void joinOnlineRoom(code)}
         {onlineBusy}

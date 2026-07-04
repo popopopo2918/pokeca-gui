@@ -1,5 +1,5 @@
-// 大会入賞デッキのプリセット（top10_deck_cards.csv より、ai_card_id ベース）。
-// デッキ選択ドロップダウンの「大会入賞デッキ」グループに表示される。
+// 大会上位アーキタイプのプリセット（top10_deck_cards.csv より、ai_card_id ベース）。
+// デッキ選択ドロップダウンの「上位アーキ0704」グループに表示される。
 export type PresetDeck = {
   id: string;
   name: string;
@@ -9,7 +9,7 @@ export type PresetDeck = {
 export const TOURNAMENT_DECKS: PresetDeck[] = [
   {
     id: 'rank1-tonakaiiii',
-    name: '1位 tonakaiiii',
+    name: 'マリィのオーロンゲex①',
     counts: {
       7: 10, 104: 2, 112: 4, 646: 4, 647: 3, 648: 3, 860: 2, 1079: 3, 1080: 1,
       1086: 4, 1097: 3, 1152: 4, 1161: 2, 1182: 2, 1219: 4, 1227: 4, 1231: 1, 1259: 4,
@@ -17,7 +17,7 @@ export const TOURNAMENT_DECKS: PresetDeck[] = [
   },
   {
     id: 'rank2-kazuki0123',
-    name: '2位 kazuki0123',
+    name: 'マリィのオーロンゲex②',
     counts: {
       7: 10, 66: 2, 112: 4, 305: 3, 646: 4, 647: 3, 648: 3, 649: 1, 1079: 3, 1086: 4,
       1097: 2, 1119: 1, 1139: 1, 1152: 4, 1159: 1, 1197: 2, 1227: 4, 1231: 4, 1259: 4,
@@ -25,7 +25,7 @@ export const TOURNAMENT_DECKS: PresetDeck[] = [
   },
   {
     id: 'rank3-yushin-ito',
-    name: '3位 Yushin Ito',
+    name: 'メガスターミーex',
     counts: {
       3: 9, 17: 4, 666: 4, 1030: 3, 1031: 3, 1086: 4, 1097: 2, 1120: 4, 1121: 1,
       1122: 4, 1145: 4, 1159: 1, 1182: 1, 1189: 4, 1223: 2, 1225: 2, 1227: 4, 1229: 4,
@@ -33,7 +33,7 @@ export const TOURNAMENT_DECKS: PresetDeck[] = [
   },
   {
     id: 'rank4-disgruntled-coffee',
-    name: '4位 disgruntled.coffee',
+    name: 'メガガルーラex',
     counts: {
       1: 1, 11: 4, 14: 4, 18: 4, 344: 3, 345: 3, 756: 4, 1086: 2, 1087: 1, 1121: 1,
       1122: 3, 1123: 2, 1147: 4, 1159: 1, 1161: 1, 1182: 4, 1186: 2, 1190: 1, 1197: 1,
@@ -42,7 +42,7 @@ export const TOURNAMENT_DECKS: PresetDeck[] = [
   },
   {
     id: 'rank5-zetadivision',
-    name: '5位 ZETADIVISION',
+    name: 'ドラパルトex',
     counts: {
       2: 3, 5: 4, 7: 2, 66: 1, 112: 2, 119: 4, 120: 4, 121: 3, 140: 1, 235: 1,
       305: 2, 306: 1, 1071: 1, 1079: 2, 1080: 1, 1086: 4, 1097: 3, 1121: 4, 1152: 4,
@@ -51,7 +51,7 @@ export const TOURNAMENT_DECKS: PresetDeck[] = [
   },
   {
     id: 'rank7-btk15049',
-    name: '7位 btk15049',
+    name: 'イイネイヌ',
     counts: {
       6: 9, 12: 1, 16: 4, 112: 1, 116: 3, 117: 1, 675: 2, 676: 3, 1051: 2, 1052: 2,
       1097: 2, 1118: 1, 1122: 4, 1137: 1, 1142: 4, 1152: 4, 1174: 2, 1182: 3, 1187: 4,
@@ -60,7 +60,7 @@ export const TOURNAMENT_DECKS: PresetDeck[] = [
   },
   {
     id: 'rank9-third-ptcg-club',
-    name: '9位 THIRD PTCG Club',
+    name: 'フーディン',
     counts: {
       5: 2, 13: 1, 19: 4, 66: 3, 140: 1, 305: 3, 343: 1, 741: 4, 742: 4, 743: 3,
       1079: 3, 1081: 3, 1086: 4, 1097: 2, 1121: 1, 1129: 1, 1146: 1, 1152: 4, 1182: 2,
@@ -69,7 +69,7 @@ export const TOURNAMENT_DECKS: PresetDeck[] = [
   },
   {
     id: 'rank10-s4nkurero',
-    name: '10位 S4nkurero',
+    name: 'マリィのオーロンゲex③',
     counts: {
       7: 10, 104: 2, 112: 4, 646: 4, 647: 3, 648: 3, 860: 2, 1079: 3, 1080: 1,
       1086: 4, 1097: 3, 1152: 4, 1161: 2, 1182: 2, 1219: 4, 1227: 4, 1231: 1, 1259: 4,

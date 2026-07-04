@@ -28,6 +28,7 @@
     catalogError?: string;
     setHomeMode: (mode: HomeMode) => void;
     startGame: () => void;
+    onDeckSourceChange: (playerIndex: 0 | 1, source: string) => void;
     createOnlineRoom: () => void;
     joinOnlineRoom: (code: string) => void;
     onlineBusy?: boolean;
@@ -56,6 +57,7 @@
     catalogError = '',
     setHomeMode,
     startGame,
+    onDeckSourceChange,
     createOnlineRoom,
     joinOnlineRoom,
     onlineBusy = false,
@@ -137,13 +139,17 @@
           <span class="field-row">
             <span>デッキ</span>
             <select
-              bind:value={player1DeckSource}
+              value={player1DeckSource}
               disabled={busy}
               aria-label="プレイヤー1のデッキ"
+              onchange={(event) => {
+                player1DeckSource = event.currentTarget.value;
+                onDeckSourceChange(0, event.currentTarget.value);
+              }}
             >
               <option value="import">デッキを貼り付け</option>
               <option value="preset:sample">フーディン（サンプルデッキ）</option>
-              <optgroup label="大会入賞デッキ">
+              <optgroup label="上位アーキ0704">
                 {#each TOURNAMENT_DECKS as deck}
                   <option value={`preset:${deck.id}`}>{deck.name}</option>
                 {/each}
@@ -210,13 +216,17 @@
           <span class="field-row">
             <span>デッキ</span>
             <select
-              bind:value={player2DeckSource}
+              value={player2DeckSource}
               disabled={busy}
               aria-label="プレイヤー2のデッキ"
+              onchange={(event) => {
+                player2DeckSource = event.currentTarget.value;
+                onDeckSourceChange(1, event.currentTarget.value);
+              }}
             >
               <option value="import">デッキを貼り付け</option>
               <option value="preset:sample">フーディン（サンプルデッキ）</option>
-              <optgroup label="大会入賞デッキ">
+              <optgroup label="上位アーキ0704">
                 {#each TOURNAMENT_DECKS as deck}
                   <option value={`preset:${deck.id}`}>{deck.name}</option>
                 {/each}
