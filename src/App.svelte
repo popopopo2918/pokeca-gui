@@ -8,7 +8,6 @@
   import { SAMPLE_DECK } from './lib/game/deckImport';
   import { findTournamentDeck } from './lib/game/presetDecks';
   import CardZoom from './lib/components/CardZoom.svelte';
-  import StartCutin from './lib/components/StartCutin.svelte';
   import ResultOverlay from './lib/components/ResultOverlay.svelte';
   import AgentManagerModal from './lib/components/AgentManagerModal.svelte';
   import BoardLayer from './lib/components/BoardLayer.svelte';
@@ -651,15 +650,7 @@
   });
   let gameFinished = $derived(game?.phase === 7);
   // 勝敗演出（主役の一瞬）: 人間側の席が1つに定まる時だけ 勝利/敗北 を出し分ける
-  let startCutinVisible = $state(false);
-  let startCutinTimer: ReturnType<typeof setTimeout> | undefined;
   let resultDismissed = $state(false);
-  function triggerStartCutin() {
-    resultDismissed = false;
-    startCutinVisible = true;
-    clearTimeout(startCutinTimer);
-    startCutinTimer = setTimeout(() => (startCutinVisible = false), 1650);
-  }
   let humanSeat = $derived(
     onlineRoom
       ? onlineRoom.seat
@@ -809,7 +800,7 @@
     gameStore.reset();
     homeMode = 'play';
     activePlayerControls = [player1Control, player2Control];
-    triggerStartCutin();
+    resultDismissed = false;
     await gameSessionStore.run(() =>
       localGameApi.start(decks.player1Cards, decks.player2Cards, {
         player1Control,
@@ -832,11 +823,7 @@
     activePlayerControls = seat === 0 ? ['self', 'agent'] : ['agent', 'self'];
     viewSettingsStore.viewIndex = seat;
     homeMode = 'play';
-    if (started) {
-      triggerStartCutin();
-    } else {
-      resultDismissed = false;
-    }
+    resultDismissed = false;
     try {
       localStorage.setItem(ONLINE_ROOM_STORAGE_KEY, JSON.stringify(onlineRoom));
     } catch {
@@ -1780,9 +1767,6 @@
 
 <svelte:window onkeydown={handleGlobalKeydown} />
 <CardZoom />
-{#if startCutinVisible && game && !replayMode && !gameFinished}
-  <StartCutin />
-{/if}
 {#if game && gameFinished && !replayMode && !resultDismissed}
   <ResultOverlay outcome={resultOutcome} label={gameResultLabel} onclose={() => (resultDismissed = true)} />
 {/if}
