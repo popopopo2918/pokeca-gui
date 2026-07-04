@@ -2,12 +2,13 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 
-rem Already running? Just open the browser instead of failing on the busy port.
-netstat -ano | findstr ":8095" | findstr "LISTENING" >nul && (
-    echo すでに起動しています。ブラウザを開きます。
-    start "" http://127.0.0.1:8095
-    exit /b 0
+rem 既に起動している場合は必ず終了して立ち上げ直す。
+rem （使い回すと、コード更新後も古いサーバーが動き続けて修正が反映されないため）
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8095" ^| findstr "LISTENING"') do (
+    echo 前回のサーバー（PID %%p）を終了して、最新の状態で起動し直します…
+    taskkill /f /pid %%p >nul 2>&1
 )
+timeout /t 1 /nobreak >nul
 
 rem CABT engine runs natively on Windows (no Docker needed).
 set CABT_ENGINE_MODE=native
