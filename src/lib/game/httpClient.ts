@@ -53,11 +53,20 @@ async function send(command: Command): Promise<EngineResponse> {
           sessionId: currentSessionId,
         },
       };
-  const response = await fetch('/local-engine', {
-    method: 'POST',
-    headers: jsonHeaders(),
-    body: JSON.stringify(commandWithSession),
-  });
+  let response: Response;
+  try {
+    response = await fetch('/local-engine', {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify(commandWithSession),
+    });
+  } catch {
+    // fetch 自体の失敗＝サーバー停止。「Failed to fetch」では原因が伝わらないので日本語で案内する。
+    return {
+      ok: false,
+      error: 'サーバーに接続できません。「対戦シミュレーターを起動.bat」を実行し直してください（黒いウィンドウは対戦中ずっと開いたままにしてください）。',
+    } as EngineResponse;
+  }
   const body = await response.json() as EngineResponse;
   if (body.ok && body.sessionId) {
     currentSessionId = body.sessionId;
