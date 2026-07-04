@@ -87,29 +87,131 @@
   border-radius: 7px 0 0 7px;
 }
 
-/* 対戦中: 主要ボタン */
+/* ============================================================
+   対戦中: ツールバーのボタン体系（レイアウト不変・見た目のみ）
+   序列: ターンエンド=青の主役 / 投了=赤の輪郭 / 指し直し=青の輪郭 /
+        その他=静かなゴースト。状態(hover/active/disabled/focus)を統一。
+   ============================================================ */
+[data-skin='broadcast'] .table-toolbar {
+  border-radius: 10px;
+  background: rgba(13, 17, 23, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+[data-skin='broadcast'] .table-toolbar button {
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.045);
+  color: #cdd5e1;
+  letter-spacing: 0.02em;
+  transition: background 0.13s ease, border-color 0.13s ease, color 0.13s ease,
+    box-shadow 0.13s ease, transform 0.08s ease, filter 0.13s ease;
+}
+[data-skin='broadcast'] .table-toolbar button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #edf1f7;
+}
+[data-skin='broadcast'] .table-toolbar button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+[data-skin='broadcast'] .table-toolbar button:disabled {
+  opacity: 0.38;
+}
+
+/* ターンエンド＝唯一の主役（青グラデ＋上端ハイライト） */
 [data-skin='broadcast'] .table-toolbar button.turn-end {
   border: 0;
   border-radius: 8px;
   color: #fff;
   letter-spacing: 0.08em;
   background: linear-gradient(180deg, #5d99ff, #3f7ef2);
-  box-shadow: 0 6px 16px rgba(77, 141, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 6px 16px rgba(77, 141, 255, 0.28);
+  text-shadow: 0 1px 2px rgba(9, 24, 56, 0.35);
+}
+[data-skin='broadcast'] .table-toolbar button.turn-end:hover:not(:disabled) {
+  background: linear-gradient(180deg, #6ba3ff, #4c88f6);
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 8px 20px rgba(77, 141, 255, 0.38);
 }
 [data-skin='broadcast'] .table-toolbar button.turn-end:disabled {
   filter: grayscale(0.7) brightness(0.65);
   opacity: 1;
   box-shadow: none;
 }
+
+/* 投了＝赤の輪郭。普段は静かに、hoverで初めて赤みが差す */
 [data-skin='broadcast'] .table-toolbar button.danger {
   background: transparent;
-  border: 1px solid rgba(240, 68, 86, 0.5);
-  color: #ff7285;
+  border: 1px solid rgba(240, 68, 86, 0.42);
+  color: #f0808e;
 }
+[data-skin='broadcast'] .table-toolbar button.danger:hover:not(:disabled) {
+  background: rgba(240, 68, 86, 0.12);
+  border-color: rgba(240, 68, 86, 0.65);
+  color: #ff8b98;
+}
+
+/* 指し直し＝青の輪郭（有効時だけ灯る） */
+[data-skin='broadcast'] .review-controls .undo-btn:not(:disabled) {
+  border-color: rgba(77, 141, 255, 0.5);
+  color: #7fabff;
+  background: rgba(77, 141, 255, 0.07);
+}
+[data-skin='broadcast'] .review-controls .undo-btn:hover:not(:disabled) {
+  background: rgba(77, 141, 255, 0.16);
+  border-color: rgba(77, 141, 255, 0.75);
+  color: #a7c6ff;
+}
+
+/* 検討モード中の「最新へ戻る」＝金（放送のリプレイ色） */
 [data-skin='broadcast'] .review-controls .live-btn.reviewing {
   background: #d9a441;
   border-color: #d9a441;
   color: #161006;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 4px 12px rgba(217, 164, 65, 0.3);
+}
+[data-skin='broadcast'] .review-controls .live-btn.reviewing:hover:not(:disabled) {
+  background: #e5b658;
+  border-color: #e5b658;
+  color: #161006;
+}
+
+/* 相手の手札トグル・表示設定＝他のゴーストと同じ声量に */
+[data-skin='broadcast'] .table-toolbar .reveal-hands-toggle,
+[data-skin='broadcast'] .table-toolbar .display-settings summary {
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.045);
+  color: #cdd5e1;
+  transition: background 0.13s ease, border-color 0.13s ease, color 0.13s ease;
+}
+[data-skin='broadcast'] .table-toolbar .reveal-hands-toggle:hover,
+[data-skin='broadcast'] .table-toolbar .display-settings summary:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #edf1f7;
+}
+
+/* チェックボックス・数値・セレクト＝ダーク入力に統一 */
+[data-skin='broadcast'] .table-toolbar input[type='checkbox'] {
+  accent-color: #4d8dff;
+}
+[data-skin='broadcast'] .table-toolbar input.compact-number,
+[data-skin='broadcast'] .table-toolbar select {
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0d1117;
+  color: #edf1f7;
+}
+
+/* キーボード操作時のフォーカスリング（マウスでは出ない） */
+[data-skin='broadcast'] .table-toolbar button:focus-visible,
+[data-skin='broadcast'] .table-toolbar summary:focus-visible,
+[data-skin='broadcast'] .prompt-panel button:focus-visible {
+  outline: 2px solid rgba(77, 141, 255, 0.85);
+  outline-offset: 1px;
 }
 
 /* 手札カウンター＝スコアチップ（金エッジ） */
@@ -121,15 +223,41 @@
   color: #edf1f7;
 }
 
-/* プロンプト＝ブルーエッジのパネル */
+/* プロンプト＝ブルーエッジのパネル。ボタンはツールバーと同じ状態体系 */
 [data-skin='broadcast'] .prompt-panel {
   border-left: 3px solid #4d8dff;
 }
+[data-skin='broadcast'] .prompt-panel button {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.05);
+  color: #d5dce6;
+  transition: background 0.13s ease, border-color 0.13s ease, color 0.13s ease,
+    box-shadow 0.13s ease, transform 0.08s ease;
+}
+[data-skin='broadcast'] .prompt-panel button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #edf1f7;
+}
+[data-skin='broadcast'] .prompt-panel button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+[data-skin='broadcast'] .prompt-panel button:disabled {
+  opacity: 0.38;
+}
 [data-skin='broadcast'] .prompt-panel button.primary {
   border: 0;
-  border-radius: 8px;
   background: linear-gradient(180deg, #5d99ff, #3f7ef2);
   color: #fff;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 6px 16px rgba(77, 141, 255, 0.26);
+  text-shadow: 0 1px 2px rgba(9, 24, 56, 0.35);
+}
+[data-skin='broadcast'] .prompt-panel button.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #6ba3ff, #4c88f6);
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 8px 20px rgba(77, 141, 255, 0.36);
 }
 
 /* 画像プレビュー・警告等のアクセント */
