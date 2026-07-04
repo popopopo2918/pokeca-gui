@@ -762,6 +762,10 @@
   .log-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    /* 件数が max-height を超えた時に行が均等圧縮されてカードが潰れるのを防ぐ
+       （行高は常に中身ぶん・あふれたらスクロール） */
+    grid-auto-rows: max-content;
+    align-content: start;
     gap: 12px;
     max-height: min(72vh, 820px);
     overflow: auto;
