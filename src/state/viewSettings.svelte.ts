@@ -20,6 +20,7 @@ type PersistedSettings = {
   revealHands?: boolean;
   sortHand?: boolean;
   showMiniLog?: boolean;
+  skin?: string;
   actionStepDelayMs?: number;
 };
 
@@ -90,6 +91,8 @@ class ViewSettingsStore {
   sortHand = $state(storedBoolean(storedSettings.sortHand, false));
   // 直近3件だけのミニログ（全ログパネルが閉じている時に表示）。
   showMiniLog = $state(storedBoolean(storedSettings.showMiniLog, true));
+  // 見た目スキン（見た目のみの切替。default / tabletop / broadcast / binder）
+  skin = $state(typeof storedSettings.skin === 'string' ? storedSettings.skin : 'default');
   actionStepDelayMs = $state(storedDelay(storedSettings.actionStepDelayMs, 650));
   viewIndex = $state(0);
   boardTilt = $state(DEFAULT_BOARD_TILT);
@@ -166,6 +169,7 @@ class ViewSettingsStore {
       revealHands: this.revealHands,
       sortHand: this.sortHand,
       showMiniLog: this.showMiniLog,
+      skin: this.skin,
       actionStepDelayMs: this.actionStepDelayMs,
     };
     if (typeof window === 'undefined') {

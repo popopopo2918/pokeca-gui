@@ -376,6 +376,9 @@
     document.documentElement.style.colorScheme = theme;
   });
   $effect(() => {
+    document.documentElement.dataset.skin = viewSettingsStore.skin;
+  });
+  $effect(() => {
     document.body.classList.toggle('prompt-gallery-page', showPromptGallery);
     return () => {
       document.body.classList.remove('prompt-gallery-page');

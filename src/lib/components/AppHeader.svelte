@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { viewSettingsStore } from '../../state/viewSettings.svelte';
+
   type Props = {
     onOpenDeckBuilder?: () => void;
     profiles?: string[];
@@ -37,6 +39,19 @@
     <p>人間 vs AI・AI vs AI の対戦とリプレイ</p>
   </div>
   <div class="actions">
+    <div class="profile skin-picker">
+      <span class="label">スキン</span>
+      <select
+        value={viewSettingsStore.skin}
+        onchange={(e) => (viewSettingsStore.skin = (e.currentTarget as HTMLSelectElement).value)}
+        aria-label="見た目スキン"
+      >
+        <option value="default">現行</option>
+        <option value="tabletop">A 卓上プロ</option>
+        <option value="broadcast">B 大会放送</option>
+        <option value="binder">C バインダー</option>
+      </select>
+    </div>
     {#if onSelectProfile && profiles.length}
       <div class="profile">
         <span class="label">ユーザー</span>

@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CABT Battle Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Mono:wght@500&family=Zen+Kaku+Gothic+New:wght@700;900&family=Zen+Old+Mincho:wght@700;900&display=swap"
+      rel="stylesheet"
+    />
     <script>
       (() => {
         try {
@@ -17,6 +23,8 @@
           document.documentElement.dataset.theme = theme;
           document.documentElement.dataset.themePreference = preference;
           document.documentElement.style.colorScheme = theme;
+          const settings = JSON.parse(localStorage.getItem('cabt.viewSettings') || '{}');
+          document.documentElement.dataset.skin = typeof settings.skin === 'string' ? settings.skin : 'default';
         } catch {
           document.documentElement.dataset.theme = 'dark';
           document.documentElement.dataset.themePreference = 'dark';
