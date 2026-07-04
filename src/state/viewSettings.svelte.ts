@@ -91,8 +91,8 @@ class ViewSettingsStore {
   sortHand = $state(storedBoolean(storedSettings.sortHand, false));
   // 直近3件だけのミニログ（全ログパネルが閉じている時に表示）。
   showMiniLog = $state(storedBoolean(storedSettings.showMiniLog, true));
-  // 見た目スキン（見た目のみの切替。default / tabletop / broadcast / binder）
-  skin = $state(typeof storedSettings.skin === 'string' ? storedSettings.skin : 'broadcast');
+  // 見た目スキンは「大会放送」のみ（他スキンは廃止済み。保存値が何であっても broadcast 固定）
+  skin = $state('broadcast');
   actionStepDelayMs = $state(storedDelay(storedSettings.actionStepDelayMs, 650));
   viewIndex = $state(0);
   boardTilt = $state(DEFAULT_BOARD_TILT);

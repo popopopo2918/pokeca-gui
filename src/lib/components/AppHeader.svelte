@@ -1,6 +1,5 @@
 <script lang="ts">
   import Logo from './Logo.svelte';
-  import { viewSettingsStore } from '../../state/viewSettings.svelte';
 
   type Props = {
     onOpenDeckBuilder?: () => void;
@@ -40,22 +39,8 @@
   </div>
   <div class="actions">
     <!-- 設定類は1本のコントロールバーにまとめる -->
-    <div class="cluster">
-      <div class="group">
-        <span class="label">スキン</span>
-        <select
-          value={viewSettingsStore.skin}
-          onchange={(e) => (viewSettingsStore.skin = (e.currentTarget as HTMLSelectElement).value)}
-          aria-label="見た目スキン"
-        >
-          <option value="default">現行</option>
-          <option value="tabletop">A 卓上プロ</option>
-          <option value="broadcast">B 大会放送</option>
-          <option value="binder">C バインダー</option>
-        </select>
-      </div>
-      {#if onSelectProfile && profiles.length}
-        <span class="sep" aria-hidden="true"></span>
+    {#if onSelectProfile && profiles.length}
+      <div class="cluster">
         <div class="group">
           <span class="label">ユーザー</span>
           <select
@@ -84,8 +69,8 @@
             {/if}
           {/if}
         </div>
-      {/if}
-    </div>
+      </div>
+    {/if}
     {#if onOpenDeckBuilder}
       <button class="nav-btn" onclick={onOpenDeckBuilder}>デッキ編成・カード一覧</button>
     {/if}
@@ -136,12 +121,6 @@
     display: flex;
     align-items: center;
     gap: 6px;
-  }
-
-  .sep {
-    width: 1px;
-    height: 20px;
-    background: var(--surface-inset-border);
   }
 
   .label {
