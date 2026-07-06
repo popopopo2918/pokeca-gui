@@ -1086,7 +1086,10 @@
     exportingLog = true;
     saveReplayError = '';
     try {
-      const response = await localGameApi.saveReplay();
+      // オンライン対戦はルーム側（サーバー）のエンジンに記録があるため、ルームAPIで保存する
+      const response = onlineRoom
+        ? await roomApi.saveReplay(onlineRoom.code)
+        : await localGameApi.saveReplay();
       if (!response.ok || !response.file) {
         throw new Error(response.error ?? '対戦ログを書き出せませんでした。');
       }

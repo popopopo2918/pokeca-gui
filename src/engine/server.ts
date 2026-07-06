@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LocalEngineController, GAME_LOGS_DIR } from './localEngine';
 import { importOfficialDeckCode } from './officialDeck';
-import { createRoom, joinRoom, leaveRoom, roomCommand, roomState } from './rooms';
+import { createRoom, joinRoom, leaveRoom, roomCommand, roomSaveReplay, roomState } from './rooms';
 import { WORKSPACES_DIR } from './workspaces';
 import { dataSyncEnabled, pullAll } from './dataStore';
 
@@ -215,7 +215,7 @@ const server = http.createServer(async (req, res) => {
         writeJson(res, 200, createRoom(clientId, body.deck));
         return;
       }
-      const match = url.pathname.match(/^\/local-engine\/rooms\/([A-Za-z0-9]+)\/(join|state|command|leave)$/);
+      const match = url.pathname.match(/^\/local-engine\/rooms\/([A-Za-z0-9]+)\/(join|state|command|leave|save-replay)$/);
       if (match) {
         const [, roomCode, action] = match;
         if (action === 'state' && req.method === 'GET') {
@@ -235,6 +235,10 @@ const server = http.createServer(async (req, res) => {
         }
         if (action === 'leave' && req.method === 'POST') {
           writeJson(res, 200, leaveRoom(clientId, roomCode));
+          return;
+        }
+        if (action === 'save-replay' && req.method === 'POST') {
+          writeJson(res, 200, roomSaveReplay(clientId, roomCode));
           return;
         }
       }

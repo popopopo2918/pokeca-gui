@@ -21,6 +21,8 @@ type Room = {
   frames: RoomFrame[];
   lastUsed: number;
   queue: Promise<unknown>;
+  /** 決着時の対戦ログ自動保存を1回に抑えるフラグ */
+  saved: boolean;
 };
 
 const rooms = new Map<string, Room>();
@@ -70,6 +72,7 @@ export function createRoom(clientId: string, deck: unknown): { ok: boolean; code
     frames: [],
     lastUsed: Date.now(),
     queue: Promise.resolve(),
+    saved: false,
   };
   rooms.set(room.code, room);
   return { ok: true, code: room.code, seat: 0 };
@@ -177,6 +180,7 @@ export async function roomCommand(clientId: string, code: string, command: { typ
   }));
   if (response.ok) {
     appendFrames(room, response);
+    maybeSaveFinishedReplay(room, response);
   }
   const masked: Record<string, unknown> = {
     ...response,
@@ -187,6 +191,40 @@ export async function roomCommand(clientId: string, code: string, command: { typ
   };
   delete masked.sessionId;
   return masked;
+}
+
+// 決着したら、ルームを動かしているサーバー側の対戦ログへ自動保存する（1回だけ）。
+// ローカル対戦の自動保存と同じ形式なので、対戦ログタブからそのまま再生できる。
+function maybeSaveFinishedReplay(room: Room, response: EngineResponse): void {
+  if (room.saved || !response.ok || response.view?.phase !== 7) {
+    return;
+  }
+  room.saved = true;
+  try {
+    room.controller.saveReplay();
+  } catch {
+    // 保存失敗時は次の機会（手動のログ出力）に任せる
+    room.saved = false;
+  }
+}
+
+/** 対戦中でも押せる手動の「ログ出力」用。保存したファイル名を返す。 */
+export function roomSaveReplay(clientId: string, code: string): Record<string, unknown> {
+  const room = rooms.get(normalizeCode(code));
+  if (!room) {
+    return { ok: false, error: 'ルームが見つかりません（相手が退出したか、期限切れです）。' };
+  }
+  if (room.seats.indexOf(clientId) < 0) {
+    return { ok: false, error: 'このルームの参加者ではありません。' };
+  }
+  room.lastUsed = Date.now();
+  const result = room.controller.saveReplay();
+  // 対戦中の手動保存は途中までの記録。決着時の自動保存（完全版）は別途走らせたいので、
+  // saved を立てるのは決着後に保存した場合だけにする。
+  if (result.ok && currentView(room).phase === 7) {
+    room.saved = true;
+  }
+  return result as unknown as Record<string, unknown>;
 }
 
 function enqueue(room: Room, task: () => Promise<EngineResponse>): Promise<EngineResponse> {

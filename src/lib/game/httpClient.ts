@@ -136,6 +136,9 @@ export const roomApi = {
   command(code: string, type: string, payload?: unknown) {
     return roomFetch(`/${encodeURIComponent(code)}/command`, { method: 'POST', body: JSON.stringify({ type, payload }) }) as Promise<EngineResponse>;
   },
+  saveReplay(code: string) {
+    return roomFetch(`/${encodeURIComponent(code)}/save-replay`, { method: 'POST', body: '{}' }) as Promise<SaveReplayResponse>;
+  },
 };
 
 /** GameCommandApi that routes every command through an online room. */
