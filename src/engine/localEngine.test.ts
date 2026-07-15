@@ -429,6 +429,41 @@ describe('LocalEngineController', () => {
     if (!response.ok) return;
     expect(response.sequence).toHaveLength(5);
   });
+
+  it('marks a direct human frame instant and later automatic frames animate', async () => {
+    const engine = new LocalEngineController() as any;
+    const select = {
+      type: 1,
+      context: CabtSelectContext.MAIN,
+      minCount: 1,
+      maxCount: 1,
+      remainDamageCounter: 0,
+      remainEnergyCost: 0,
+      option: [{ type: CabtOptionType.END }],
+      deck: null,
+      contextCard: null,
+      effect: null,
+    };
+    engine.sessionId = 'session';
+    engine.playerControls = ['self', 'agent'];
+    engine.observation = { select, logs: [], current: currentState({ yourIndex: 0 }) };
+    engine.bridge = {
+      request: async () => ({
+        ok: true,
+        observation: { select: null, logs: [], current: currentState({ yourIndex: 0 }) },
+        autoSteps: [
+          { select: null, logs: [], current: currentState({ yourIndex: 0 }) },
+          { select: null, logs: [], current: currentState({ yourIndex: 1 }) },
+        ],
+      }),
+    };
+
+    const response = await engine.applySelection([0]);
+
+    expect(response.ok).toBe(true);
+    if (!response.ok) return;
+    expect(response.sequencePlayback).toEqual(['instant', 'animate']);
+  });
 });
 
 function currentState(overrides: Record<string, unknown> = {}) {

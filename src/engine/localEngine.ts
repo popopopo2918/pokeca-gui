@@ -20,7 +20,7 @@ import {
 } from '../lib/cabt/types';
 import rawCardRows from '../lib/cabt/cardData.generated.json';
 import jaCardRows from '../lib/cards/cardsJa.generated.json';
-import type { ActionTimelineEvent, CardTarget, EngineResponse, GameView, LogView } from '../lib/game/types';
+import type { ActionTimelineEvent, CardTarget, EngineResponse, GameView, LogView, SequencePlayback } from '../lib/game/types';
 import { PlayerType, SlotType } from '../lib/game/types';
 import type { ReplayLoadResponse } from '../lib/game/replay';
 import {
@@ -70,6 +70,11 @@ type PendingBridgeCall = {
 type PendingRetreatTarget = {
   playerIndex: number;
   benchIndex: number;
+};
+
+type PendingSequenceFrame = {
+  view: GameView;
+  playback: SequencePlayback;
 };
 
 type PlayerControl = 'self' | 'agent';
@@ -126,7 +131,7 @@ export class LocalEngineController {
   private logId = 1;
   private actionTimeline: ActionTimelineEvent[] = [];
   private timelineId = 1;
-  private pendingSequence: GameView[] = [];
+  private pendingSequence: PendingSequenceFrame[] = [];
   private sessionId = '';
   private undoCount = 0;
   private pendingRetreatTarget: PendingRetreatTarget | null = null;
@@ -354,7 +359,7 @@ export class LocalEngineController {
       agentPaths,
       agentControlled: playerControls.map((control) => control === 'agent'),
     }, { allowStart: true });
-    this.applyBridgeResponse(response);
+    this.applyBridgeResponse(response, 'instant');
     this.logs = [{
       id: this.logId++,
       message: `CABT対戦を開始しました（${this.replayModeLabel}）。`,
@@ -368,7 +373,7 @@ export class LocalEngineController {
   private async undo(payload: any): Promise<EngineResponse> {
     const count = typeof payload?.count === 'number' && payload.count > 0 ? Math.floor(payload.count) : 1;
     const response = await this.bridge.request({ command: 'undo', count });
-    this.applyBridgeResponse(response);
+    this.applyBridgeResponse(response, 'instant');
     this.pendingRetreatTarget = null;
     this.pendingSequence = [];
     this.logs = [...this.logs, {
@@ -418,7 +423,7 @@ export class LocalEngineController {
       command: 'select',
       selection,
     });
-    this.applyBridgeResponse(response);
+    this.applyBridgeResponse(response, 'instant');
     await this.applyPendingRetreatTarget();
     return this.viewResponse();
   }
@@ -449,7 +454,7 @@ export class LocalEngineController {
         command: 'select',
         selection: [optionIndex],
       });
-      this.applyBridgeResponse(response);
+      this.applyBridgeResponse(response, 'instant');
     }
     await this.applyPendingRetreatTarget();
     return this.viewResponse();
@@ -536,7 +541,7 @@ export class LocalEngineController {
       command: 'select',
       selection: [targetIndex],
     });
-    this.applyBridgeResponse(response);
+    this.applyBridgeResponse(response, 'instant');
   }
 
   private findPendingRetreatTargetOption(): number {
@@ -551,7 +556,7 @@ export class LocalEngineController {
       && (option.playerIndex === undefined || option.playerIndex === null || option.playerIndex === target.playerIndex));
   }
 
-  private applyBridgeResponse(response: BridgeResponse): void {
+  private applyBridgeResponse(response: BridgeResponse, directPlayback: SequencePlayback = 'animate'): void {
     if (!response.ok) {
       throw new Error(response.traceback ? `${response.error}\n${response.traceback}` : (response.error ?? 'CABTエンジンでエラーが発生しました。'));
     }
@@ -566,7 +571,7 @@ export class LocalEngineController {
     this.trueHands = response.trueHands ?? null;
     // サイドの実体も観戦フィード由来。undo後は再抽選されるため null に戻る。
     this.truePrizes = response.truePrizes ?? null;
-    this.pendingSequence = [...this.pendingSequence, ...this.appendTimeline(response)];
+    this.pendingSequence = [...this.pendingSequence, ...this.appendTimeline(response, directPlayback)];
     this.recordReplayFrames(response);
     this.observation = this.withKnownHands(response.observation ?? null);
     if (typeof response.undoCount === 'number') {
@@ -575,12 +580,13 @@ export class LocalEngineController {
   }
 
   private viewResponse(): EngineResponse {
-    const sequence = this.pendingSequence;
+    const pending = this.pendingSequence;
     this.pendingSequence = [];
     return {
       ok: true,
       view: this.view(),
-      sequence: sequence.length ? sequence : undefined,
+      sequence: pending.length ? pending.map((frame) => frame.view) : undefined,
+      sequencePlayback: pending.length ? pending.map((frame) => frame.playback) : undefined,
       sessionId: this.sessionId || undefined,
       undoCount: this.undoCount,
     };
@@ -687,10 +693,12 @@ export class LocalEngineController {
     };
   }
 
-  private appendTimeline(response: BridgeResponse): GameView[] {
+  private appendTimeline(response: BridgeResponse, directPlayback: SequencePlayback): PendingSequenceFrame[] {
     const observations = response.autoSteps?.length ? response.autoSteps : response.observation ? [response.observation] : [];
-    const sequence: GameView[] = [];
-    for (const observation of observations) {
+    const sequence: PendingSequenceFrame[] = [];
+    for (let observationIndex = 0; observationIndex < observations.length; observationIndex += 1) {
+      const observation = observations[observationIndex];
+      const playback = observationIndex === 0 ? directPlayback : 'animate';
       const logs = observation.logs ?? [];
       if (logs.length) {
         const result = cabtLogsToTimeline(logs, { nextId: this.timelineId });
@@ -707,12 +715,12 @@ export class LocalEngineController {
       const revealPrompt = this.revealPromptForLogs(logs, view);
       if (revealPrompt) {
         sequence.push({
-          ...view,
-          prompts: [revealPrompt],
+          view: { ...view, prompts: [revealPrompt] },
+          playback,
         });
       }
       if (!this.isAgentDecisionView(hydratedObservation, view)) {
-        sequence.push(view);
+        sequence.push({ view, playback });
       }
     }
     return sequence;
