@@ -233,17 +233,17 @@ export class CodexMatchManager {
       match.lastUsed = Date.now();
       const current = match.controller.currentCodexDecision(match.codexSeat);
       if (!current) {
-        return { ok: false, error: 'Codexの手番ではありません。' };
+        return { ok: false, error: 'Codexの手番ではありません。', revision: match.revision };
       }
       if (current.decisionId !== body?.decisionId) {
-        return { ok: false, error: '局面が更新されています。最新の合法手を取得してください。' };
+        return { ok: false, error: '局面が更新されています。最新の合法手を取得してください。', revision: match.revision };
       }
       const rationale = sanitizeRationale(body?.rationale);
       if (!rationale) {
-        return { ok: false, error: '判断理由は4項目すべて入力してください。' };
+        return { ok: false, error: '判断理由は4項目すべて入力してください。', revision: match.revision };
       }
       if (!Array.isArray(body?.tokens)) {
-        return { ok: false, error: '合法手トークンを指定してください。' };
+        return { ok: false, error: '合法手トークンを指定してください。', revision: match.revision };
       }
       const response = await match.controller.applyCodexDecision(match.codexSeat, body.decisionId, body.tokens ?? []);
       if (response.ok) {

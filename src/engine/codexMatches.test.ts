@@ -171,6 +171,7 @@ describe('CodexMatchManager', () => {
 
     expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1);
     expect(fake.appliedDecisions).toHaveLength(1);
+    expect(first.revision).toBe(second.revision);
   });
 
   it('remembers only deck cards exposed by a legitimate Codex search prompt', async () => {
