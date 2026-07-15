@@ -47,3 +47,12 @@ export type CodexRationale = {
   evidence: string;
   alternative: string;
 };
+
+export type CodexDecisionRecord = {
+  revision: number;
+  turn: number;
+  decisionId: string;
+  tokens: string[];
+  rationale: CodexRationale;
+  createdAt: string;
+};
