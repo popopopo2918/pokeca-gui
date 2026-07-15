@@ -3,7 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { CabtDemoController, cabtCardToView, cabtObservationToGameView, type CabtDataMaps } from '../lib/cabt/demoEngine';
+import {
+  CabtDemoController,
+  cabtCardToView,
+  cabtObservationToGameView,
+  cabtSelectMessage,
+  optionLabel,
+  optionOwnerLabel,
+  type CabtDataMaps,
+} from '../lib/cabt/demoEngine';
 import { cabtLogsToTimeline } from '../lib/cabt/logFormat';
 import {
   CabtAreaType,
@@ -36,6 +44,13 @@ import {
   deleteWorkspaceAgent,
 } from './workspaces';
 import { pushFile, deleteRepoPaths } from './dataStore';
+import type {
+  CodexDecisionKind,
+  CodexDecisionOption,
+  CodexDeckEntry,
+  CodexEngineDecision,
+  CodexSearchSnapshot,
+} from './codexProtocol';
 
 type Command = {
   type: string;
@@ -94,6 +109,20 @@ type AgentManifest = {
   }>;
 };
 
+const CODEX_KIND_BY_OPTION: Record<number, CodexDecisionKind> = {
+  [CabtOptionType.PLAY]: 'play',
+  [CabtOptionType.ATTACH]: 'attach',
+  [CabtOptionType.EVOLVE]: 'evolve',
+  [CabtOptionType.ABILITY]: 'ability',
+  [CabtOptionType.ATTACK]: 'attack',
+  [CabtOptionType.RETREAT]: 'retreat',
+  [CabtOptionType.END]: 'end',
+  [CabtOptionType.YES]: 'yes',
+  [CabtOptionType.NO]: 'no',
+  [CabtOptionType.NUMBER]: 'number',
+  [CabtOptionType.CARD]: 'card',
+};
+
 const CARD_ROWS = rawCardRows as Array<{
   id: number;
   name: string;
@@ -142,6 +171,7 @@ export class LocalEngineController {
   private replayPlayerLabels: [string, string] = ['Player 1', 'Player 2'];
   private replayModeLabel = 'Self vs Agent';
   private playerControls: [PlayerControl, PlayerControl] = ['self', 'agent'];
+  private observationVersion = 0;
 
   constructor() {
     this.bridge = new CabtBridgeClient(() => this.invalidateSession('CABTエンジンが終了しました。'));
@@ -345,6 +375,7 @@ export class LocalEngineController {
     this.actionTimeline = [];
     this.timelineId = 1;
     this.pendingSequence = [];
+    this.observationVersion = 0;
     this.replayFrames = [];
     this.playerControls = playerControls;
     this.replayModeLabel = `${controlLabel(playerControls[0])} vs ${controlLabel(playerControls[1])}`;
@@ -574,6 +605,7 @@ export class LocalEngineController {
     this.pendingSequence = [...this.pendingSequence, ...this.appendTimeline(response, directPlayback)];
     this.recordReplayFrames(response);
     this.observation = this.withKnownHands(response.observation ?? null);
+    this.observationVersion += 1;
     if (typeof response.undoCount === 'number') {
       this.undoCount = response.undoCount;
     }
@@ -595,6 +627,90 @@ export class LocalEngineController {
   /** Current view snapshot (used by the online-room layer for turn checks/serving). */
   currentGameView() {
     return this.view();
+  }
+
+  currentCodexDecision(playerIndex: number): CodexEngineDecision | null {
+    const observation = this.observation;
+    const current = observation?.current;
+    const select = observation?.select;
+    if (!observation || !current || !select || current.result >= 0 || current.yourIndex !== playerIndex) {
+      return null;
+    }
+    const decisionId = `d${this.observationVersion}`;
+    return {
+      decisionId,
+      playerIndex,
+      prompt: cabtSelectMessage(select, this.dataMaps, observation),
+      minCount: select.minCount,
+      maxCount: select.maxCount,
+      options: select.option.map((option, index) => this.codexOption(decisionId, option, index)),
+    };
+  }
+
+  async applyCodexDecision(playerIndex: number, decisionId: string, tokens: string[]): Promise<EngineResponse> {
+    const current = this.currentCodexDecision(playerIndex);
+    if (!current || current.decisionId !== decisionId) {
+      return { ok: false, error: '局面が更新されています。最新の合法手を取得してください。' };
+    }
+    const prefix = `${decisionId}-o`;
+    const indexes = tokens.map((token) => token.startsWith(prefix) ? Number(token.slice(prefix.length)) : Number.NaN);
+    if (indexes.some((index) => !Number.isInteger(index) || index < 0 || index >= current.options.length)) {
+      return { ok: false, error: '合法手トークンが正しくありません。' };
+    }
+    if (new Set(indexes).size !== indexes.length
+      || indexes.length < current.minCount
+      || indexes.length > current.maxCount) {
+      return { ok: false, error: `選択は${current.minCount}〜${current.maxCount}個にしてください。` };
+    }
+    return this.applySelection(indexes);
+  }
+
+  describeCodexDeck(cards: unknown[]): CodexDeckEntry[] {
+    const ids = resolveDeck(cards, 'Codexのデッキ');
+    const counts = new Map<number, number>();
+    for (const id of ids) {
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([id, count]) => ({
+      id,
+      name: JA_NAME_BY_ID.get(id) ?? CARD_ROWS_BY_ID.get(id)?.name ?? `カード${id}`,
+      count,
+    }));
+  }
+
+  currentCodexSearch(playerIndex: number): CodexSearchSnapshot | null {
+    const decision = this.currentCodexDecision(playerIndex);
+    const select = this.observation?.select;
+    if (!decision || !select) {
+      return null;
+    }
+    const cards = select.option.flatMap((option) => {
+      if (option.area !== CabtAreaType.DECK) {
+        return [];
+      }
+      const card = option.cardId
+        ? { id: option.cardId }
+        : typeof option.index === 'number'
+          ? select.deck?.[option.index] ?? null
+          : null;
+      if (!card) {
+        return [];
+      }
+      return [{
+        id: card.id,
+        name: JA_NAME_BY_ID.get(card.id) ?? this.dataMaps.cardData[card.id]?.name ?? `カード${card.id}`,
+      }];
+    });
+    return cards.length ? { decisionId: decision.decisionId, prompt: decision.prompt, cards } : null;
+  }
+
+  private codexOption(decisionId: string, option: CabtOption, index: number): CodexDecisionOption {
+    return {
+      token: `${decisionId}-o${index}`,
+      kind: CODEX_KIND_BY_OPTION[option.type] ?? 'other',
+      label: optionLabel(option, this.dataMaps, this.observation!, this.observation!.select?.context),
+      target: optionOwnerLabel(option, this.observation!) ?? undefined,
+    };
   }
 
   // CABTエンジン自体には投了コマンドがないため、GUI側で勝敗を確定して
@@ -626,6 +742,7 @@ export class LocalEngineController {
       select: null,
       current: { ...this.observation.current, result: winner },
     };
+    this.observationVersion += 1;
     return this.viewResponse();
   }
 

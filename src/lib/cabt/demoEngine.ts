@@ -759,7 +759,7 @@ function activeAttacks(active: CabtPokemon | null | undefined, dataMaps: CabtDat
   return active ? (dataMaps.cardData[active.id]?.attacks ?? []).map((attackId) => dataMaps.attacks[attackId]).filter(Boolean) : [];
 }
 
-function optionLabel(option: CabtOption, dataMaps: CabtDataMaps, observation: CabtObservation, context?: number) {
+export function optionLabel(option: CabtOption, dataMaps: CabtDataMaps, observation: CabtObservation, context?: number) {
   if (context === CabtSelectContext.IS_FIRST && option.type === CabtOptionType.YES) return '先攻';
   if (context === CabtSelectContext.IS_FIRST && option.type === CabtOptionType.NO) return '後攻';
   if (option.type === CabtOptionType.NUMBER) return numberOptionLabel(option, context);
@@ -855,7 +855,7 @@ function isPrizeSelectionPrompt(select: CabtSelectData) {
 /** 選択肢が「場のどのポケモンに作用するか」を示すラベル。
  * 改造ハンマー等（装着カード選択）と、ふしぎなアメ等（進化先の選択:
  * 同じ手札カードでも inPlay 対象が異なる）で使う。 */
-function optionOwnerLabel(option: CabtOption, observation: CabtObservation): string | undefined {
+export function optionOwnerLabel(option: CabtOption, observation: CabtObservation): string | undefined {
   const current = observation.current;
   if (!current) {
     return undefined;
@@ -893,7 +893,7 @@ function inPlayLabel(
 /** Human-facing message for a CABT select: name the concrete card/ability being decided
  * instead of the generic 「効果を処理する」, so the player knows what they are choosing.
  * Prefers the Japanese card/ability names over the English engine data. */
-function cabtSelectMessage(select: CabtSelectData, dataMaps: CabtDataMaps, observation: CabtObservation): string {
+export function cabtSelectMessage(select: CabtSelectData, dataMaps: CabtDataMaps, observation: CabtObservation): string {
   if (select.context === CabtSelectContext.ACTIVATE) {
     const source = select.effect ?? select.contextCard;
     const data = source ? dataMaps.cardData[source.id] : undefined;

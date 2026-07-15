@@ -464,6 +464,121 @@ describe('LocalEngineController', () => {
     if (!response.ok) return;
     expect(response.sequencePlayback).toEqual(['instant', 'animate']);
   });
+
+  it('exposes opaque Codex tokens and rejects a stale decision', async () => {
+    const engine = new LocalEngineController() as any;
+    engine.observationVersion = 7;
+    engine.observation = {
+      select: {
+        type: 0,
+        context: CabtSelectContext.MAIN,
+        minCount: 1,
+        maxCount: 1,
+        remainDamageCounter: 0,
+        remainEnergyCost: 0,
+        option: [{ type: CabtOptionType.END }],
+        deck: null,
+        contextCard: null,
+        effect: null,
+      },
+      logs: [],
+      current: currentState({ yourIndex: 1 }),
+    };
+
+    const decision = engine.currentCodexDecision(1);
+
+    expect(decision).toMatchObject({ playerIndex: 1, minCount: 1, maxCount: 1 });
+    expect(decision.options[0]).toMatchObject({ token: 'd7-o0', kind: 'end', label: 'ターンエンド' });
+    expect(decision.options[0]).not.toHaveProperty('index');
+    await expect(engine.applyCodexDecision(1, 'd6', ['d6-o0']))
+      .resolves.toMatchObject({ ok: false, error: '局面が更新されています。最新の合法手を取得してください。' });
+  });
+
+  it('does not expose a decision to the non-acting seat', () => {
+    const engine = new LocalEngineController() as any;
+    engine.observationVersion = 1;
+    engine.observation = {
+      select: {
+        type: 0,
+        context: CabtSelectContext.MAIN,
+        minCount: 1,
+        maxCount: 1,
+        remainDamageCounter: 0,
+        remainEnergyCost: 0,
+        option: [{ type: CabtOptionType.END }],
+        deck: null,
+        contextCard: null,
+        effect: null,
+      },
+      logs: [],
+      current: currentState({ yourIndex: 1 }),
+    };
+
+    expect(engine.currentCodexDecision(0)).toBeNull();
+  });
+
+  it('validates duplicate, malformed and out-of-range Codex tokens', async () => {
+    const engine = new LocalEngineController() as any;
+    engine.observationVersion = 2;
+    engine.observation = {
+      select: {
+        type: 1,
+        context: CabtSelectContext.TO_HAND,
+        minCount: 1,
+        maxCount: 2,
+        remainDamageCounter: 0,
+        remainEnergyCost: 0,
+        option: [
+          { type: CabtOptionType.CARD, cardId: 1 },
+          { type: CabtOptionType.CARD, cardId: 2 },
+        ],
+        deck: null,
+        contextCard: null,
+        effect: null,
+      },
+      logs: [],
+      current: currentState({ yourIndex: 1 }),
+    };
+
+    await expect(engine.applyCodexDecision(1, 'd2', ['d2-o0', 'd2-o0']))
+      .resolves.toMatchObject({ ok: false });
+    await expect(engine.applyCodexDecision(1, 'd2', ['wrong']))
+      .resolves.toMatchObject({ ok: false, error: '合法手トークンが正しくありません。' });
+    await expect(engine.applyCodexDecision(1, 'd2', ['d2-o2']))
+      .resolves.toMatchObject({ ok: false, error: '合法手トークンが正しくありません。' });
+  });
+
+  it('summarizes the Codex deck and exposes only legitimately searched deck cards', () => {
+    const engine = new LocalEngineController() as any;
+    engine.observationVersion = 3;
+    engine.observation = {
+      select: {
+        type: 1,
+        context: CabtSelectContext.TO_HAND,
+        minCount: 1,
+        maxCount: 1,
+        remainDamageCounter: 0,
+        remainEnergyCost: 0,
+        option: [
+          { type: CabtOptionType.CARD, area: CabtAreaType.DECK, index: 0 },
+          { type: CabtOptionType.CARD, area: CabtAreaType.DECK, index: 1 },
+        ],
+        deck: [{ id: 1 }, { id: 2 }],
+        contextCard: null,
+        effect: null,
+      },
+      logs: [],
+      current: currentState({ yourIndex: 1 }),
+    };
+
+    expect(engine.describeCodexDeck(Array(60).fill(1))).toEqual([
+      expect.objectContaining({ id: 1, count: 60 }),
+    ]);
+    expect(engine.currentCodexSearch(1)).toMatchObject({
+      decisionId: 'd3',
+      cards: [expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 })],
+    });
+  });
 });
 
 function currentState(overrides: Record<string, unknown> = {}) {
