@@ -77,3 +77,14 @@ export type SelfPlayMetrics = {
   consecutiveKnockoutRate?: number;
   winner?: number;
 };
+
+export function sanitizeCodexRationale(value: unknown): CodexRationale | null {
+  if (!value || typeof value !== 'object') return null;
+  const source = value as Record<string, unknown>;
+  const keys = ['action', 'goal', 'evidence', 'alternative'] as const;
+  const fields = Object.fromEntries(
+    keys.map((key) => [key, String(source[key] ?? '').trim().slice(0, 500)]),
+  ) as Record<(typeof keys)[number], string>;
+  if (keys.some((key) => !fields[key])) return null;
+  return fields;
+}

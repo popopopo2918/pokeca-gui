@@ -7,6 +7,7 @@ import type {
   CodexRationale,
   CodexSearchSnapshot,
 } from './codexProtocol';
+import { sanitizeCodexRationale } from './codexProtocol';
 import { LocalEngineController } from './localEngine';
 import { maskViewForCodex, maskViewForSeat } from './viewMask';
 
@@ -238,7 +239,7 @@ export class CodexMatchManager {
       if (current.decisionId !== body?.decisionId) {
         return { ok: false, error: '局面が更新されています。最新の合法手を取得してください。', revision: match.revision };
       }
-      const rationale = sanitizeRationale(body?.rationale);
+      const rationale = sanitizeCodexRationale(body?.rationale);
       if (!rationale) {
         return { ok: false, error: '判断理由は4項目すべて入力してください。', revision: match.revision };
       }
@@ -396,14 +397,3 @@ export class CodexMatchManager {
 
 export const codexMatchManager = new CodexMatchManager();
 setInterval(() => codexMatchManager.prune(), 5 * 60 * 1000).unref();
-
-function sanitizeRationale(value: unknown): CodexRationale | null {
-  if (!value || typeof value !== 'object') return null;
-  const source = value as Record<string, unknown>;
-  const keys = ['action', 'goal', 'evidence', 'alternative'] as const;
-  const fields = Object.fromEntries(
-    keys.map((key) => [key, String(source[key] ?? '').trim().slice(0, 500)]),
-  ) as Record<(typeof keys)[number], string>;
-  if (keys.some((key) => !fields[key])) return null;
-  return fields;
-}
