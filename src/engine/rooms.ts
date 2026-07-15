@@ -1,6 +1,6 @@
 import { LocalEngineController } from './localEngine';
 import { CabtAreaType } from '../lib/cabt/types';
-import type { ActionTimelineEvent, EngineResponse, GameView, PromptView } from '../lib/game/types';
+import type { ActionTimelineEvent, EngineResponse, GameView, PromptView, SequencePlayback } from '../lib/game/types';
 
 // 遠隔対戦ルーム: 2つのブラウザが同じ対戦（1つのエンジン）を座席0/1で共有する。
 // - 座席はクライアントID（x-cabt-client）に紐づく。再読み込みしても同じ席に戻れる。
@@ -149,6 +149,7 @@ export function roomState(clientId: string, code: string, since: number): Record
     seat,
     view: maskViewForSeat(stateView, seat),
     sequence: sequence.length ? sequence : undefined,
+    sequencePlayback: sequence.length ? remotePlayback(sequence.length) : undefined,
   };
 }
 
@@ -186,6 +187,9 @@ export async function roomCommand(clientId: string, code: string, command: { typ
     ...response,
     view: response.view ? maskViewForSeat(response.view, seat) : response.view,
     sequence: response.ok && response.sequence ? response.sequence.map((view) => maskViewForSeat(view, seat)) : undefined,
+    sequencePlayback: response.ok && response.sequence
+      ? senderPlayback(response.sequencePlayback, response.sequence.length)
+      : undefined,
     revision: room.revision,
     undoCount: 0,
   };
@@ -260,6 +264,16 @@ function appendFrames(room: Room, response: EngineResponse): void {
 function normalizeCode(code: string): string {
   return code.trim().toUpperCase();
 }
+
+function remotePlayback(count: number): SequencePlayback[] {
+  return Array.from({ length: count }, () => 'animate');
+}
+
+function senderPlayback(playback: SequencePlayback[] | undefined, count: number): SequencePlayback[] {
+  return Array.from({ length: count }, (_unused, index) => playback?.[index] ?? 'animate');
+}
+
+export const __test = { remotePlayback, senderPlayback };
 
 // ---- 座席ごとの情報マスク ----
 

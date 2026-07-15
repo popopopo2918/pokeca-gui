@@ -925,7 +925,12 @@
       onlineWaiting = !state.started;
       if (state.started && typeof state.revision === 'number' && state.revision > lastRoomRevision && state.view) {
         lastRoomRevision = state.revision;
-        await gameSessionStore.applyExternal({ ok: true, view: state.view, sequence: state.sequence });
+        await gameSessionStore.applyExternal({
+          ok: true,
+          view: state.view,
+          sequence: state.sequence,
+          sequencePlayback: state.sequencePlayback,
+        });
       }
     } catch {
       // 一時的な通信エラーは次のポーリングで回復する
