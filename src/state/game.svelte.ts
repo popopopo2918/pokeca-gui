@@ -1,7 +1,7 @@
 import type { EngineResponse, GameView } from '../lib/game/types';
 import { viewSettingsStore } from './viewSettings.svelte';
 
-class GameStore {
+export class GameStore {
   game = $state<GameView | null>(null);
   error = $state('');
   busy = $state(false);
@@ -138,13 +138,19 @@ class GameStore {
       return response;
     }
     if (response.ok) {
-      if (response.sequence?.length && (viewSettingsStore.animateActions || response.sequence.some(hasPlaybackPrompt))) {
-        this.playingSequence = true;
+      const sequence = response.sequence ?? [];
+      const needsPlayback = sequence.some((view, index) =>
+        hasPlaybackPrompt(view)
+        || (viewSettingsStore.animateActions && (response.sequencePlayback?.[index] ?? 'animate') === 'animate'));
+      if (sequence.length) {
+        this.playingSequence = needsPlayback;
         try {
-          for (const view of response.sequence) {
+          for (let index = 0; index < sequence.length; index += 1) {
             if (this.skipSequenceRequested) {
               break;
             }
+            const view = sequence[index];
+            const playback = response.sequencePlayback?.[index] ?? 'animate';
             this.game = view;
             this.error = '';
             if (hasPlaybackPrompt(view)) {
@@ -153,7 +159,7 @@ class GameStore {
               if (generation !== this.generation) {
                 return response;
               }
-            } else if (viewSettingsStore.animateActions) {
+            } else if (viewSettingsStore.animateActions && playback === 'animate') {
               await wait(clampedActionStepDelay());
               if (generation !== this.generation) {
                 return response;

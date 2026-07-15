@@ -164,10 +164,13 @@ export type GameView = {
   events: unknown[];
 };
 
+export type SequencePlayback = 'instant' | 'animate';
+
 export type EngineOk = {
   ok: true;
   view: GameView;
   sequence?: GameView[];
+  sequencePlayback?: SequencePlayback[];
   sessionId?: string;
   /** How many past decisions can still be rewound with the undo command. */
   undoCount?: number;
