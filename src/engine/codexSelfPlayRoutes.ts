@@ -10,6 +10,7 @@ type SelfPlayRouteManager = {
   create(body: any): Promise<Record<string, any>>;
   seatState(code: string): Record<string, any>;
   seatDecision(code: string, body: any): Promise<Record<string, any>>;
+  seatConcede(code: string, rationale: unknown): Promise<Record<string, any>>;
   progress(code: string): Record<string, any>;
   summary(code: string): Record<string, any>;
 };
@@ -43,6 +44,10 @@ export async function handleCodexSelfPlayRoute(
   }
   if (request.pathname === '/local-engine/codex-self-play/seat-decision' && request.method === 'POST') {
     const body = await manager.seatDecision(request.seatCode, request.body);
+    return { status: statusFor(body), body };
+  }
+  if (request.pathname === '/local-engine/codex-self-play/seat-concede' && request.method === 'POST') {
+    const body = await manager.seatConcede(request.seatCode, request.body?.rationale);
     return { status: statusFor(body), body };
   }
   if (request.pathname === '/local-engine/codex-self-play/progress' && request.method === 'GET') {

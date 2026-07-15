@@ -212,6 +212,43 @@ export class CodexSelfPlayManager {
     });
   }
 
+  async seatConcede(code: string, rationaleValue: unknown): Promise<Record<string, any>> {
+    const authorized = this.matchForSeatCode(code);
+    if (!authorized) return { ok: false, error: '自己対戦の席コードが無効か、期限切れです。' };
+    const { match, seat } = authorized;
+    return this.enqueue(match, async () => {
+      match.lastUsed = Date.now();
+      const before = match.controller.currentGameView();
+      if (before.phase === 7) return { ok: false, error: '対戦はすでに終了しています。', revision: match.revision };
+      this.observeActiveSeat(match, before);
+      const rationale = sanitizeCodexRationale(rationaleValue);
+      if (!rationale) return { ok: false, error: '判断理由は4項目すべて入力してください。', revision: match.revision };
+      const decisionId = `concede-r${match.revision}`;
+      const response = await match.controller.handle({
+        type: 'concede',
+        payload: { playerIndex: seat, sessionId: match.sessionId },
+      });
+      if (!response.ok) return { ...response, revision: match.revision };
+      this.appendRevision(match, response);
+      match.decisions.push({
+        seat,
+        playerTurn: match.playerTurns[seat],
+        revision: match.revision,
+        turn: response.view.turn,
+        decisionId,
+        tokens: [],
+        prompt: '対戦を投了しますか？',
+        selected: [{ kind: 'other', label: '投了' }],
+        ownPrizesLeftBefore: before.players[seat]?.prizesLeft ?? 0,
+        ownPrizesLeftAfter: response.view.players[seat]?.prizesLeft ?? 0,
+        rationale,
+        createdAt: new Date().toISOString(),
+      });
+      this.maybeSaveFinished(match, response.view);
+      return { ok: true, revision: match.revision, view: maskViewForCodex(response.view, seat) };
+    });
+  }
+
   progress(code: string): Record<string, any> {
     const match = this.matchForCoordinatorCode(code);
     if (!match) return { ok: false, error: '自己対戦の管理コードが無効か、期限切れです。' };

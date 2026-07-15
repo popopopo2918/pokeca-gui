@@ -6,6 +6,7 @@ function manager() {
     create: vi.fn().mockResolvedValue({ ok: true, matchId: 'm1' }),
     seatState: vi.fn().mockReturnValue({ ok: true, status: 'decision' }),
     seatDecision: vi.fn().mockResolvedValue({ ok: false, error: '局面が更新されています。' }),
+    seatConcede: vi.fn().mockResolvedValue({ ok: true, revision: 4 }),
     progress: vi.fn().mockReturnValue({ ok: true, decisionCount: 3 }),
     summary: vi.fn().mockReturnValue({ ok: true, status: 'finished' }),
   };
@@ -64,6 +65,18 @@ describe('Codex self-play HTTP route handler', () => {
     expect(fake.summary).toHaveBeenCalledWith('coordinator-secret');
     expect(progress?.body.decisionCount).toBe(3);
     expect(summary?.body.status).toBe('finished');
+  });
+
+  it('席コードと判断理由で投了を送る', async () => {
+    const fake = manager();
+    const rationale = { action: '投了', goal: '終了', evidence: '敗北確定', alternative: '続行' };
+    const result = await handleCodexSelfPlayRoute(request('POST', '/local-engine/codex-self-play/seat-concede', {
+      seatCode: 'seat-secret',
+      body: { rationale },
+    }), fake as never);
+
+    expect(fake.seatConcede).toHaveBeenCalledWith('seat-secret', rationale);
+    expect(result?.status).toBe(200);
   });
 
   it('未知の自己対戦経路を404にする', async () => {

@@ -81,6 +81,10 @@ function createFakeController(finishAfter = Number.POSITIVE_INFINITY) {
         this.startedWith = command.payload;
         return { ok: true, view: current, sessionId: 'session', sequence: [current], sequencePlayback: ['instant'] };
       }
+      if (command.type === 'concede') {
+        current = view((1 - command.payload.playerIndex) as 0 | 1, decisionNumber, true);
+        return { ok: true, view: current };
+      }
       return { ok: true, view: current };
     },
     currentGameView() {
@@ -211,5 +215,26 @@ describe('CodexSelfPlayManager', () => {
     expect(JSON.stringify(fake.savedMetadata)).not.toContain(created.coordinatorCode);
     expect(JSON.stringify(fake.savedMetadata)).not.toContain(created.seatCodes[0]);
     expect(manager.summary('wrong-code')).toMatchObject({ ok: false });
+  });
+
+  it('席の投了を理由付きの一手として記録する', async () => {
+    const { manager, created } = await startedMatch();
+
+    const response = await manager.seatConcede(created.seatCodes[1], {
+      action: '投了',
+      goal: '勝ち筋がない試合を終了する',
+      evidence: '次の相手の攻撃を防ぐ合法手がない',
+      alternative: 'ターンを続けても敗北が確定している',
+    });
+
+    expect(response).toMatchObject({ ok: true });
+    expect(manager.summary(created.coordinatorCode)).toMatchObject({
+      ok: true,
+      result: 0,
+      decisions: [expect.objectContaining({
+        seat: 1,
+        selected: [{ kind: 'other', label: '投了' }],
+      })],
+    });
   });
 });
