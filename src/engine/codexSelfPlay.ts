@@ -298,7 +298,7 @@ export class CodexSelfPlayManager {
   }
 
   private observeActiveSeat(match: SelfPlayMatch, view: GameView): void {
-    if (view.phase === 7) return;
+    if (view.phase === 7 || view.turn <= 0) return;
     const active = (view.prompts[0]?.playerIndex ?? view.activePlayerIndex) as 0 | 1;
     if (active !== 0 && active !== 1) return;
     if (match.observedActiveSeat !== active) {

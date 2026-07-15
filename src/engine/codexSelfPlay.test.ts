@@ -66,8 +66,11 @@ function rationale() {
   };
 }
 
-function createFakeController(finishAfter = Number.POSITIVE_INFINITY) {
-  let current = view(0);
+function createFakeController(
+  finishAfter = Number.POSITIVE_INFINITY,
+  turnSequence?: number[],
+) {
+  let current = view(0, turnSequence?.[0] ?? 1);
   let decisionNumber = 1;
   let applied = 0;
   return {
@@ -110,7 +113,7 @@ function createFakeController(finishAfter = Number.POSITIVE_INFINITY) {
       applied += 1;
       decisionNumber += 1;
       const finished = applied >= finishAfter;
-      current = view((1 - seat) as 0 | 1, decisionNumber, finished);
+      current = view((1 - seat) as 0 | 1, turnSequence?.[applied] ?? decisionNumber, finished);
       return { ok: true, view: current, sequence: [current], sequencePlayback: ['instant'] };
     },
     describeCodexDeck(cards: unknown[]) {
@@ -130,8 +133,11 @@ function createFakeController(finishAfter = Number.POSITIVE_INFINITY) {
   };
 }
 
-async function startedMatch(finishAfter = Number.POSITIVE_INFINITY) {
-  const fake = createFakeController(finishAfter);
+async function startedMatch(
+  finishAfter = Number.POSITIVE_INFINITY,
+  turnSequence?: number[],
+) {
+  const fake = createFakeController(finishAfter, turnSequence);
   const manager = new CodexSelfPlayManager(() => fake as never);
   const created = await manager.create({
     decks: [Array(60).fill(1), Array(60).fill(2)],
@@ -173,6 +179,28 @@ describe('CodexSelfPlayManager', () => {
       rationale: rationale(),
     });
     expect(manager.seatState(created.seatCodes[1])).toMatchObject({ status: 'decision', playerTurn: 1 });
+  });
+
+  it('対戦準備中の席交代を自席ターンとして数えない', async () => {
+    const { manager, created } = await startedMatch(Number.POSITIVE_INFINITY, [0, 0, 1]);
+
+    const setupSeat0 = manager.seatState(created.seatCodes[0]);
+    expect(setupSeat0).toMatchObject({ status: 'decision', playerTurn: 0 });
+    await manager.seatDecision(created.seatCodes[0], {
+      decisionId: setupSeat0.decision.decisionId,
+      tokens: [setupSeat0.decision.options[0].token],
+      rationale: rationale(),
+    });
+
+    const setupSeat1 = manager.seatState(created.seatCodes[1]);
+    expect(setupSeat1).toMatchObject({ status: 'decision', playerTurn: 0 });
+    await manager.seatDecision(created.seatCodes[1], {
+      decisionId: setupSeat1.decision.decisionId,
+      tokens: [setupSeat1.decision.options[0].token],
+      rationale: rationale(),
+    });
+
+    expect(manager.seatState(created.seatCodes[0])).toMatchObject({ status: 'decision', playerTurn: 1 });
   });
 
   it('重複判断は一手だけ適用して同じrevisionを返す', async () => {
