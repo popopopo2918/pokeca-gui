@@ -5,6 +5,7 @@
   import { resolveDeckTextEntries } from '../cards/cardCatalog';
   import type { AgentOption, GameLogEntry } from '../home/catalog';
   import type { PlayerControl } from '../game/httpClient';
+  import { validateControls } from '../game/controlMode';
 
   type HomeMode = 'play' | 'logs';
   type SavedDeckOption = { id: string; name: string };
@@ -75,6 +76,7 @@
   let previewTarget = $state<0 | 1 | null>(null);
   let startDisabled = $derived(
     busy
+      || !!validateControls([player1Control, player2Control])
       || (player1Control === 'agent' && !player1AgentId)
       || (player2Control === 'agent' && !player2AgentId),
   );
@@ -106,8 +108,12 @@
   function setPlayerControl(playerIndex: 0 | 1, control: PlayerControl) {
     if (playerIndex === 0) {
       player1Control = control;
+      if (control === 'codex') player2Control = 'self';
+      if (control === 'agent' && player2Control === 'codex') player2Control = 'self';
     } else {
       player2Control = control;
+      if (control === 'codex') player1Control = 'self';
+      if (control === 'agent' && player1Control === 'codex') player1Control = 'self';
     }
   }
 </script>
@@ -138,6 +144,9 @@
               <button type="button" role="tab" aria-selected={player1Control === 'agent'}
                 class:active={player1Control === 'agent'} disabled={busy}
                 onclick={() => setPlayerControl(0, 'agent')}>AI</button>
+              <button type="button" role="tab" aria-selected={player1Control === 'codex'}
+                class:active={player1Control === 'codex'} disabled={busy}
+                onclick={() => setPlayerControl(0, 'codex')}>Codex</button>
             </span>
           </header>
 
@@ -204,6 +213,9 @@
               <button type="button" role="tab" aria-selected={player2Control === 'agent'}
                 class:active={player2Control === 'agent'} disabled={busy}
                 onclick={() => setPlayerControl(1, 'agent')}>AI</button>
+              <button type="button" role="tab" aria-selected={player2Control === 'codex'}
+                class:active={player2Control === 'codex'} disabled={busy}
+                onclick={() => setPlayerControl(1, 'codex')}>Codex</button>
             </span>
           </header>
 

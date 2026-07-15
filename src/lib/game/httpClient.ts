@@ -1,5 +1,7 @@
 import type { GameCommandApi } from './gameApi';
 import type { CardTarget, EngineResponse } from './types';
+import type { PlayerControl } from './controlMode';
+export type { PlayerControl } from './controlMode';
 
 type Command = {
   type: string;
@@ -8,8 +10,6 @@ type Command = {
 };
 
 type AvailableActionsScope = 'none' | 'active' | 'full';
-export type PlayerControl = 'self' | 'agent';
-
 type StartOptions = {
   player1Control?: PlayerControl;
   player2Control?: PlayerControl;

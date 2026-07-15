@@ -32,7 +32,15 @@
   import Toolbar from './lib/components/Toolbar.svelte';
   import ZoneViewer from './lib/components/ZoneViewer.svelte';
   import type { GameCommandApi } from './lib/game/gameApi';
-  import { createRoomGameApi, localGameApi, roomApi, type PlayerControl } from './lib/game/httpClient';
+  import {
+    codexMatchApi,
+    createCodexHumanGameApi,
+    createRoomGameApi,
+    localGameApi,
+    roomApi,
+    type PlayerControl,
+  } from './lib/game/httpClient';
+  import { validateControls } from './lib/game/controlMode';
   import { formatCabtDeckList } from './lib/game/deckImport';
   import { labelFor } from './lib/game/labels';
   import cardRows from './lib/cabt/cardData.generated.json';
@@ -109,6 +117,13 @@
   import { zoneViewerStore } from './state/zoneViewer.svelte';
 
   type HomeMode = 'play' | 'logs';
+  type CodexMatchClientState = {
+    matchId: string;
+    connectionCode: string;
+    humanSeat: 0 | 1;
+    codexSeat: 0 | 1;
+    codexConnected: boolean;
+  };
 
   let showPromptGallery = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'prompt-gallery';
   const initialReplayMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'replay';
@@ -190,7 +205,7 @@
     }
   }
   function storedControl(value: PlayerControl | undefined, fallback: PlayerControl): PlayerControl {
-    return value === 'self' || value === 'agent' ? value : fallback;
+    return value === 'self' || value === 'agent' || value === 'codex' ? value : fallback;
   }
   const storedMatchSetup = readStoredMatchSetup();
 
@@ -229,6 +244,9 @@
   let onlineBusy = $state(false);
   let lastRoomRevision = 0;
   let onlinePollInFlight = false;
+  let codexMatch = $state<CodexMatchClientState | null>(null);
+  let lastCodexRevision = 0;
+  let codexPollInFlight = false;
 
   function readStoredOnlineRoom(): { code: string; seat: number } | null {
     try {
@@ -241,7 +259,11 @@
   }
 
   let commandApi = $derived<GameCommandApi>(
-    onlineRoom
+    codexMatch
+      ? createCodexHumanGameApi(codexMatch.matchId, (revision) => {
+          lastCodexRevision = Math.max(lastCodexRevision, revision);
+        })
+      : onlineRoom
       ? createRoomGameApi(onlineRoom.code, (revision) => {
           lastRoomRevision = Math.max(lastRoomRevision, revision);
         })
@@ -497,14 +519,15 @@
   let currentPrompt = $derived.by(() => {
     if (replayMode) return null;
     const prompt = game?.prompts[0];
-    if (prompt && onlineRoom && prompt.fields?.playbackOnly !== true && prompt.playerIndex !== onlineRoom.seat) {
+    const remoteSeat = codexMatch?.humanSeat ?? onlineRoom?.seat;
+    if (prompt && remoteSeat !== undefined && prompt.fields?.playbackOnly !== true && prompt.playerIndex !== remoteSeat) {
       return null;
     }
     return prompt;
   });
-  let onlineOpponentActing = $derived(
-    !!onlineRoom && !!game && game.ready !== false && game.phase !== 7
-      && (game.prompts[0]?.playerIndex ?? game.activePlayerIndex) !== onlineRoom.seat,
+  let remoteOpponentActing = $derived(
+    !!(onlineRoom || codexMatch) && !!game && game.ready !== false && game.phase !== 7
+      && (game.prompts[0]?.playerIndex ?? game.activePlayerIndex) !== (codexMatch?.humanSeat ?? onlineRoom?.seat),
   );
   let actingPlayerIndex = $derived(currentPrompt?.playerIndex ?? game?.activePlayerIndex ?? 0);
   let actingPlayerIsSelf = $derived(activePlayerControls[actingPlayerIndex] === 'self');
@@ -791,8 +814,16 @@
       gameStore.setError(decks.error);
       return;
     }
+    const controlsError = validateControls([player1Control, player2Control]);
+    if (controlsError) {
+      gameStore.setError(controlsError);
+      return;
+    }
 
     selectionStore.setSelectedHand(null);
+    if (codexMatch) {
+      leaveCodexMatch();
+    }
     resetSaveReplayStatus();
     sessionResultRecorded = false;
     resetSessionTallyIfMatchupChanged();
@@ -801,6 +832,28 @@
     homeMode = 'play';
     activePlayerControls = [player1Control, player2Control];
     resultDismissed = false;
+    const codexSeat = player1Control === 'codex' ? 0 : player2Control === 'codex' ? 1 : null;
+    if (codexSeat !== null) {
+      await gameSessionStore.run(async () => {
+        const response = await codexMatchApi.create(
+          [decks.player1Cards, decks.player2Cards],
+          codexSeat,
+        );
+        if (response.ok) {
+          codexMatch = {
+            matchId: response.matchId,
+            connectionCode: response.connectionCode,
+            humanSeat: response.humanSeat,
+            codexSeat: response.codexSeat,
+            codexConnected: Boolean(response.codexConnected),
+          };
+          lastCodexRevision = response.revision ?? 0;
+          viewSettingsStore.viewIndex = response.humanSeat;
+        }
+        return response;
+      });
+      return;
+    }
     await gameSessionStore.run(() =>
       localGameApi.start(decks.player1Cards, decks.player2Cards, {
         player1Control,
@@ -936,6 +989,73 @@
       // 一時的な通信エラーは次のポーリングで回復する
     } finally {
       onlinePollInFlight = false;
+    }
+  }
+
+  $effect(() => {
+    if (!codexMatch || !game) {
+      return;
+    }
+    const matchId = codexMatch.matchId;
+    const timer = setInterval(() => void pollCodexMatch(matchId), 500);
+    void pollCodexMatch(matchId);
+    return () => clearInterval(timer);
+  });
+
+  async function pollCodexMatch(matchId: string) {
+    if (codexPollInFlight || !codexMatch || codexMatch.matchId !== matchId) {
+      return;
+    }
+    if (gameStore.busy || gameStore.resolvingPrompt || gameStore.playingSequence) {
+      return;
+    }
+    codexPollInFlight = true;
+    try {
+      const state = await codexMatchApi.state(matchId, lastCodexRevision);
+      if (!codexMatch || codexMatch.matchId !== matchId) {
+        return;
+      }
+      if (!state.ok) {
+        gameStore.setError(state.error ?? 'Codex対戦との接続が失われました。');
+        leaveCodexMatch(false);
+        return;
+      }
+      codexMatch = { ...codexMatch, codexConnected: Boolean(state.codexConnected) };
+      if (typeof state.revision === 'number' && state.revision > lastCodexRevision && state.view) {
+        lastCodexRevision = state.revision;
+        await gameSessionStore.applyExternal({
+          ok: true,
+          view: state.view,
+          sequence: state.sequence,
+          sequencePlayback: state.sequencePlayback,
+        });
+      }
+    } catch {
+      // 一時的な通信エラーは次のポーリングで回復する
+    } finally {
+      codexPollInFlight = false;
+    }
+  }
+
+  function leaveCodexMatch(notifyServer = true) {
+    if (!codexMatch) {
+      return;
+    }
+    if (notifyServer) {
+      void codexMatchApi.leave(codexMatch.matchId).catch(() => undefined);
+    }
+    codexMatch = null;
+    lastCodexRevision = 0;
+    codexPollInFlight = false;
+  }
+
+  async function copyCodexConnectionCode() {
+    if (!codexMatch) return;
+    try {
+      await navigator.clipboard.writeText(codexMatch.connectionCode);
+      saveReplayMessage = 'Codex接続コードをコピーしました。';
+    } catch {
+      saveReplayError = `Codex接続コード: ${codexMatch.connectionCode}`;
     }
   }
 
@@ -1118,7 +1238,7 @@
   // Auto-save the match log once when a live game finishes (uses the live game, not the reviewed frame).
   // オンライン対戦の記録はルーム側のエンジンにあるため、ここでは保存しない。
   $effect(() => {
-    if (!replayMode && !onlineRoom && gameStore.gameFinished && !savingReplay && !saveReplayMessage && !saveReplayError) {
+    if (!replayMode && !onlineRoom && !codexMatch && gameStore.gameFinished && !savingReplay && !saveReplayMessage && !saveReplayError) {
       void saveReplay();
     }
   });
@@ -1257,6 +1377,7 @@
   // 投了するのは常に「人間側の席」。手番側(activePlayerIndex)を使うと、
   // 相手ターン中の投了で相手を投了させてしまう。
   function concedeSeat(): number {
+    if (codexMatch) return codexMatch.humanSeat;
     if (onlineRoom) return onlineRoom.seat;
     if (activePlayerControls[0] === 'self' && activePlayerControls[1] !== 'self') return 0;
     if (activePlayerControls[1] === 'self' && activePlayerControls[0] !== 'self') return 1;
@@ -1444,6 +1565,7 @@
       return;
     }
     leaveOnlineRoom();
+    leaveCodexMatch();
     gameSessionStore.reset();
     resetSaveReplayStatus();
     zoneViewerStore.close();
@@ -1578,7 +1700,7 @@
   }
 
   function controlLabel(control: PlayerControl) {
-    return control === 'agent' ? 'AI' : '自分';
+    return control === 'agent' ? 'AI' : control === 'codex' ? 'Codex' : '自分';
   }
 
   function isAttachEnergyAvailable(index: number) {
@@ -1891,6 +2013,9 @@
         modeLabel={replayMode ? '' : modeLabel}
         {gameFinished}
         thinking={!replayMode && sessionBusy && !actingPlayerIsSelf && !playingSequence}
+        codexConnectionCode={codexMatch?.connectionCode}
+        codexConnected={codexMatch?.codexConnected}
+        onCopyCodexCode={() => void copyCodexConnectionCode()}
       />
 
       {#if !replayMode && !gameFinished}
@@ -2017,11 +2142,17 @@
         </button>
       {/if}
 
-      {#if onlineOpponentActing}
+      {#if remoteOpponentActing}
         <div
           class="online-waiting-hint"
           style="position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:18; padding:8px 16px; border-radius:999px; border:1px solid var(--surface-glass-border); background:var(--surface-glass-bg); color:var(--text-secondary); font-size:13px; font-weight:700; box-shadow:var(--surface-toolbar-shadow); backdrop-filter:blur(var(--backdrop-blur));"
-        >⏳ 相手の操作待ち…（ルーム {onlineRoom?.code}）</div>
+        >
+          {#if codexMatch}
+            ⏳ Codexの操作待ち…
+          {:else}
+            ⏳ 相手の操作待ち…（ルーム {onlineRoom?.code}）
+          {/if}
+        </div>
       {/if}
 
       {#if error && !gameFinished}

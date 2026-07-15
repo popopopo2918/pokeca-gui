@@ -7,6 +7,9 @@
     modeLabel?: string;
     gameFinished?: boolean;
     thinking?: boolean;
+    codexConnectionCode?: string;
+    codexConnected?: boolean;
+    onCopyCodexCode?: () => void;
   };
 
   let {
@@ -17,6 +20,9 @@
     modeLabel = '',
     gameFinished = false,
     thinking = false,
+    codexConnectionCode = '',
+    codexConnected = false,
+    onCopyCodexCode,
   }: Props = $props();
 </script>
 
@@ -31,6 +37,12 @@
   {/if}
   {#if thinking && !gameFinished}
     <span class="thinking" role="status">AI思考中…</span>
+  {/if}
+  {#if codexConnectionCode && !gameFinished}
+    <span class="codex-connection" aria-live="polite">
+      Codex: {codexConnected ? '接続済み' : '接続待ち'}
+      <button type="button" onclick={onCopyCodexCode}>コードをコピー</button>
+    </span>
   {/if}
 </div>
 
@@ -68,6 +80,22 @@
     color: var(--text-primary);
     font-weight: 700;
     animation: thinking-pulse 1.2s ease-in-out infinite;
+  }
+
+  .codex-connection {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .codex-connection button {
+    border: 1px solid var(--button-border);
+    border-radius: 999px;
+    padding: 3px 9px;
+    background: var(--button-bg);
+    color: var(--button-text);
+    font: inherit;
+    cursor: pointer;
   }
 
   @keyframes thinking-pulse {
