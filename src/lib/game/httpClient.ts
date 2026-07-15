@@ -163,6 +163,58 @@ export function createRoomGameApi(code: string, onRevision?: (revision: number) 
   };
 }
 
+// ---- Codex操作席 ----
+
+async function codexMatchFetch(path: string, init?: RequestInit): Promise<any> {
+  const response = await fetch(`/local-engine/codex-matches${path}`, {
+    ...init,
+    headers: { ...jsonHeaders(), ...(init?.headers ?? {}) },
+  });
+  return response.json();
+}
+
+export const codexMatchApi = {
+  create(decks: [string[], string[]], codexSeat: 0 | 1) {
+    return codexMatchFetch('', {
+      method: 'POST',
+      body: JSON.stringify({ decks, codexSeat }),
+    });
+  },
+  state(matchId: string, since: number) {
+    return codexMatchFetch(`/${encodeURIComponent(matchId)}/state?since=${since}`, { method: 'GET' });
+  },
+  command(matchId: string, type: string, payload?: unknown) {
+    return codexMatchFetch(`/${encodeURIComponent(matchId)}/command`, {
+      method: 'POST',
+      body: JSON.stringify({ type, payload }),
+    }) as Promise<EngineResponse>;
+  },
+  leave(matchId: string) {
+    return codexMatchFetch(`/${encodeURIComponent(matchId)}/leave`, { method: 'POST', body: '{}' });
+  },
+};
+
+export function createCodexHumanGameApi(matchId: string, onRevision?: (revision: number) => void): GameCommandApi {
+  const send = (type: string, payload?: unknown) =>
+    codexMatchApi.command(matchId, type, payload).then((body: EngineResponse & { revision?: number }) => {
+      if (typeof body.revision === 'number') {
+        onRevision?.(body.revision);
+      }
+      return body;
+    });
+  return {
+    playCard: (playerIndex, handIndex, target) => send('playCard', { playerIndex, handIndex, target }),
+    attack: (playerIndex, attack) => send('attack', { playerIndex, attack }),
+    useAbility: (playerIndex, ability, target) => send('useAbility', { playerIndex, ability, target }),
+    useStadium: (playerIndex) => send('useStadium', { playerIndex }),
+    concede: (playerIndex) => send('concede', { playerIndex }),
+    retreat: (playerIndex, to) => send('retreat', { playerIndex, to }),
+    passTurn: (playerIndex) => send('passTurn', { playerIndex }),
+    undo: () => Promise.resolve({ ok: false, error: 'Codex対戦では指し直しは使えません。' }),
+    resolvePrompt: (id, result) => send('resolvePrompt', { id, result }),
+  };
+}
+
 export const localGameApi: GameCommandApi & {
   start(
     player1Deck: string[],

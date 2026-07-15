@@ -7,6 +7,8 @@ import { importOfficialDeckCode } from './officialDeck';
 import { createRoom, joinRoom, leaveRoom, roomCommand, roomSaveReplay, roomState } from './rooms';
 import { WORKSPACES_DIR } from './workspaces';
 import { dataSyncEnabled, pullAll } from './dataStore';
+import { codexMatchManager } from './codexMatches';
+import { handleCodexRoute } from './codexRoutes';
 
 const port = Number(process.env.PORT ?? process.env.LOCAL_ENGINE_PORT ?? 8095);
 const host = process.env.LOCAL_ENGINE_HOST ?? (process.env.PORT ? '0.0.0.0' : '127.0.0.1');
@@ -168,6 +170,28 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/local-engine/health') {
     writeJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (url.pathname.startsWith('/local-engine/codex-matches')
+    || url.pathname.startsWith('/local-engine/codex-agent')) {
+    try {
+      const raw = req.method === 'POST' ? await readBody(req) : '';
+      const body = raw ? JSON.parse(raw) : {};
+      const header = req.headers['x-cabt-codex-code'];
+      const connectionCode = (Array.isArray(header) ? header[0] : header)?.trim() ?? '';
+      const result = await handleCodexRoute({
+        method: req.method ?? 'GET',
+        pathname: url.pathname,
+        searchParams: url.searchParams,
+        clientId: clientIdOf(req),
+        body,
+        connectionCode,
+      }, codexMatchManager);
+      writeJson(res, result?.status ?? 404, result?.body ?? { ok: false, error: 'Not found' });
+    } catch (error) {
+      writeJson(res, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
     return;
   }
 
@@ -392,6 +416,7 @@ function logCommand(clientId: string, command: any, response: any): void {
 
 // Kill every engine bridge when the server stops, so no Python processes leak.
 function closeAllControllers(): void {
+  codexMatchManager.closeAll();
   for (const [id, entry] of controllers) {
     try {
       entry.controller.close();

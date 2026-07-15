@@ -1,5 +1,27 @@
-import { describe, expect, it } from 'vitest';
-import { hostedAvailableActionsScope } from './httpClient';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { codexMatchApi, hostedAvailableActionsScope } from './httpClient';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe('Codex match HTTP client', () => {
+  it('creates a Codex match without putting credentials in the URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ok: true,
+      matchId: 'm1',
+      connectionCode: 'secret-code',
+    })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await codexMatchApi.create([Array(60).fill('1'), Array(60).fill('2')], 1);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/local-engine/codex-matches');
+    expect((init.headers as Record<string, string>)['x-cabt-client']).toBeTruthy();
+    expect(String(url)).not.toContain('secret-code');
+  });
+});
 
 describe('hosted headless requests', () => {
   it('skips legality dry-runs for latency-sensitive mutation responses', () => {
