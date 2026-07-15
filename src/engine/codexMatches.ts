@@ -40,6 +40,8 @@ type CodexMatch = {
   connectedAt?: number;
   lastUsed: number;
   saved: boolean;
+  replayFile?: string;
+  replayId?: string;
 };
 
 type CreateBody = {
@@ -189,6 +191,7 @@ export class CodexMatchManager {
       });
       if (response.ok) {
         this.appendFrames(match, response);
+        this.maybeSaveFinished(match, response.view);
       }
       return this.maskResponse(response, match, match.humanSeat, response.ok ? response.sequencePlayback : undefined);
     });
@@ -235,6 +238,13 @@ export class CodexMatchManager {
       if (current.decisionId !== body?.decisionId) {
         return { ok: false, error: '局面が更新されています。最新の合法手を取得してください。' };
       }
+      const rationale = sanitizeRationale(body?.rationale);
+      if (!rationale) {
+        return { ok: false, error: '判断理由は4項目すべて入力してください。' };
+      }
+      if (!Array.isArray(body?.tokens)) {
+        return { ok: false, error: '合法手トークンを指定してください。' };
+      }
       const response = await match.controller.applyCodexDecision(match.codexSeat, body.decisionId, body.tokens ?? []);
       if (response.ok) {
         match.decisions.push({
@@ -242,10 +252,11 @@ export class CodexMatchManager {
           turn: response.view.turn,
           decisionId: body.decisionId,
           tokens: [...body.tokens],
-          rationale: body.rationale,
+          rationale,
           createdAt: new Date().toISOString(),
         });
         this.appendFrames(match, response);
+        this.maybeSaveFinished(match, response.view);
       }
       return this.maskResponse(response, match, match.codexSeat, response.ok ? response.sequencePlayback : undefined, true);
     });
@@ -253,10 +264,36 @@ export class CodexMatchManager {
 
   leave(clientId: string, matchId: string): { ok: boolean } {
     const match = this.authorizedBrowserMatch(clientId, matchId);
-    if (match) {
+    if (match && match.controller.currentGameView().phase !== 7) {
       this.deleteMatch(match);
     }
     return { ok: true };
+  }
+
+  browserSaveReplay(clientId: string, matchId: string): Record<string, any> {
+    const match = this.authorizedBrowserMatch(clientId, matchId);
+    if (!match) {
+      return { ok: false, error: 'Codex対戦が見つからないか、参加者ではありません。' };
+    }
+    match.lastUsed = Date.now();
+    return this.saveMatchReplay(match, match.controller.currentGameView().phase === 7);
+  }
+
+  summary(connectionCode: string): Record<string, any> {
+    const match = this.matchForCode(connectionCode);
+    if (!match) {
+      return { ok: false, error: 'Codex接続コードが無効か、期限切れです。' };
+    }
+    const view = maskViewForCodex(match.controller.currentGameView(), match.codexSeat);
+    return {
+      ok: true,
+      status: view.phase === 7 ? 'finished' : 'in-progress',
+      result: view.winner,
+      replayFile: match.replayFile,
+      replayId: match.replayId,
+      decisions: match.decisions,
+      publicTimeline: view.actionTimeline ?? [],
+    };
   }
 
   closeAll(): void {
@@ -289,6 +326,28 @@ export class CodexMatchManager {
   private actingSeat(match: CodexMatch): number {
     const view = match.controller.currentGameView();
     return view.prompts[0]?.playerIndex ?? view.activePlayerIndex;
+  }
+
+  private maybeSaveFinished(match: CodexMatch, view: GameView): void {
+    if (view.phase === 7 && !match.saved) {
+      this.saveMatchReplay(match, true);
+    }
+  }
+
+  private saveMatchReplay(match: CodexMatch, markSaved: boolean): Record<string, any> {
+    const codexView = maskViewForCodex(match.controller.currentGameView(), match.codexSeat);
+    const result = match.controller.saveReplay({
+      codexSeat: match.codexSeat,
+      codexDecisions: match.decisions,
+      publicTimeline: codexView.actionTimeline ?? [],
+      result: codexView.winner,
+    }) as Record<string, any>;
+    if (result.ok) {
+      match.replayFile = result.file;
+      match.replayId = result.id;
+      if (markSaved) match.saved = true;
+    }
+    return result;
   }
 
   private maskResponse(
@@ -337,3 +396,14 @@ export class CodexMatchManager {
 
 export const codexMatchManager = new CodexMatchManager();
 setInterval(() => codexMatchManager.prune(), 5 * 60 * 1000).unref();
+
+function sanitizeRationale(value: unknown): CodexRationale | null {
+  if (!value || typeof value !== 'object') return null;
+  const source = value as Record<string, unknown>;
+  const keys = ['action', 'goal', 'evidence', 'alternative'] as const;
+  const fields = Object.fromEntries(
+    keys.map((key) => [key, String(source[key] ?? '').trim().slice(0, 500)]),
+  ) as Record<(typeof keys)[number], string>;
+  if (keys.some((key) => !fields[key])) return null;
+  return fields;
+}

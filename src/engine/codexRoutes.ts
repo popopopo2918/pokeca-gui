@@ -14,6 +14,8 @@ type CodexRouteManager = {
   leave(clientId: string, matchId: string): Record<string, any>;
   agentState(connectionCode: string): Record<string, any>;
   agentDecision(connectionCode: string, body: any): Promise<Record<string, any>>;
+  browserSaveReplay(clientId: string, matchId: string): Record<string, any>;
+  summary(connectionCode: string): Record<string, any>;
 };
 
 export type CodexRouteResult = {
@@ -39,7 +41,7 @@ export async function handleCodexRoute(
     return { status: statusFor(body), body };
   }
 
-  const browserMatch = request.pathname.match(/^\/local-engine\/codex-matches\/([^/]+)\/(state|command|leave)$/);
+  const browserMatch = request.pathname.match(/^\/local-engine\/codex-matches\/([^/]+)\/(state|command|leave|save-replay)$/);
   if (browserMatch) {
     const matchId = decodeURIComponent(browserMatch[1]);
     const action = browserMatch[2];
@@ -56,6 +58,10 @@ export async function handleCodexRoute(
       const body = manager.leave(request.clientId, matchId);
       return { status: statusFor(body), body };
     }
+    if (action === 'save-replay' && request.method === 'POST') {
+      const body = manager.browserSaveReplay(request.clientId, matchId);
+      return { status: statusFor(body), body };
+    }
     return { status: 405, body: { ok: false, error: 'Method not allowed' } };
   }
 
@@ -65,6 +71,10 @@ export async function handleCodexRoute(
   }
   if (request.pathname === '/local-engine/codex-agent/decision' && request.method === 'POST') {
     const body = await manager.agentDecision(request.connectionCode, request.body);
+    return { status: statusFor(body, true), body };
+  }
+  if (request.pathname === '/local-engine/codex-agent/summary' && request.method === 'GET') {
+    const body = manager.summary(request.connectionCode);
     return { status: statusFor(body, true), body };
   }
   if (request.pathname.startsWith('/local-engine/codex-matches')

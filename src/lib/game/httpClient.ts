@@ -192,6 +192,9 @@ export const codexMatchApi = {
   leave(matchId: string) {
     return codexMatchFetch(`/${encodeURIComponent(matchId)}/leave`, { method: 'POST', body: '{}' });
   },
+  saveReplay(matchId: string) {
+    return codexMatchFetch(`/${encodeURIComponent(matchId)}/save-replay`, { method: 'POST', body: '{}' }) as Promise<SaveReplayResponse>;
+  },
 };
 
 export function createCodexHumanGameApi(matchId: string, onRevision?: (revision: number) => void): GameCommandApi {

@@ -1191,7 +1191,9 @@
     saveReplayMessage = '';
     saveReplayError = '';
     try {
-      const response = await localGameApi.saveReplay();
+      const response = codexMatch
+        ? await codexMatchApi.saveReplay(codexMatch.matchId)
+        : await localGameApi.saveReplay();
       if (!response.ok) {
         throw new Error(response.error ?? '対戦を保存できませんでした。');
       }
@@ -1212,9 +1214,11 @@
     saveReplayError = '';
     try {
       // オンライン対戦はルーム側（サーバー）のエンジンに記録があるため、ルームAPIで保存する
-      const response = onlineRoom
-        ? await roomApi.saveReplay(onlineRoom.code)
-        : await localGameApi.saveReplay();
+      const response = codexMatch
+        ? await codexMatchApi.saveReplay(codexMatch.matchId)
+        : onlineRoom
+          ? await roomApi.saveReplay(onlineRoom.code)
+          : await localGameApi.saveReplay();
       if (!response.ok || !response.file) {
         throw new Error(response.error ?? '対戦ログを書き出せませんでした。');
       }

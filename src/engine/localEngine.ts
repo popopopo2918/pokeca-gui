@@ -312,7 +312,7 @@ export class LocalEngineController {
     return { ok: false, error: 'Replay loading is not wired for the CABT adapter yet.' };
   }
 
-  saveReplay(): SaveReplayResponse {
+  saveReplay(metadata: Record<string, unknown> = {}): SaveReplayResponse {
     if (!this.replayFrames.length) {
       return { ok: false, error: 'No local match is available to save.' };
     }
@@ -330,6 +330,7 @@ export class LocalEngineController {
         title: name,
         info: {
           TeamNames: this.replayPlayerLabels,
+          ...metadata,
         },
       },
     };

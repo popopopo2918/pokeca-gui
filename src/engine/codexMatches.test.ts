@@ -186,4 +186,48 @@ describe('CodexMatchManager', () => {
     expect(agent.knowledge.searches).toEqual([fake.searchSnapshot]);
     expect(agent).not.toHaveProperty('prizeContents');
   });
+
+  it('stores sanitized rationale and includes it in the finished replay metadata', async () => {
+    const { manager, created, fake } = await startedMatch({ actingSeat: 1, codexSeat: 1 });
+    const longEvidence = `  ${'公開情報'.repeat(200)}  `;
+    await manager.agentDecision(created.connectionCode!, {
+      decisionId: 'd1',
+      tokens: ['d1-o0'],
+      rationale: {
+        action: '  ターンエンド  ',
+        goal: '次の番へ進める',
+        evidence: longEvidence,
+        alternative: '不要なカード使用を見送る',
+      },
+    });
+
+    await manager.browserCommand('human-client', created.matchId!, {
+      type: 'concede',
+      payload: { playerIndex: 0 },
+    });
+
+    const metadata = fake.savedMetadata as any;
+    expect(metadata.codexDecisions[0].rationale.action).toBe('ターンエンド');
+    expect(metadata.codexDecisions[0].rationale.evidence.length).toBe(500);
+    expect(JSON.stringify(metadata)).not.toContain(created.connectionCode);
+    expect(manager.summary(created.connectionCode!)).toMatchObject({
+      ok: true,
+      result: 0,
+      replayFile: 'replay.json',
+      decisions: [expect.objectContaining({ decisionId: 'd1' })],
+    });
+  });
+
+  it('rejects a decision without all four rationale fields', async () => {
+    const { manager, created, fake } = await startedMatch({ actingSeat: 1, codexSeat: 1 });
+
+    const response = await manager.agentDecision(created.connectionCode!, {
+      decisionId: 'd1',
+      tokens: ['d1-o0'],
+      rationale: { ...rationale(), evidence: '   ' },
+    });
+
+    expect(response).toMatchObject({ ok: false, error: '判断理由は4項目すべて入力してください。' });
+    expect(fake.appliedDecisions).toHaveLength(0);
+  });
 });

@@ -21,6 +21,15 @@ describe('Codex match HTTP client', () => {
     expect((init.headers as Record<string, string>)['x-cabt-client']).toBeTruthy();
     expect(String(url)).not.toContain('secret-code');
   });
+
+  it('saves a Codex replay through the match route', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true, file: 'replay.json' })));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await codexMatchApi.saveReplay('m1');
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/local-engine/codex-matches/m1/save-replay');
+  });
 });
 
 describe('hosted headless requests', () => {
