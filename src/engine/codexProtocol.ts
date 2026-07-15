@@ -56,3 +56,24 @@ export type CodexDecisionRecord = {
   rationale: CodexRationale;
   createdAt: string;
 };
+
+export type SelfPlayDecisionRecord = CodexDecisionRecord & {
+  seat: 0 | 1;
+  playerTurn: number;
+  prompt: string;
+  selected: Array<Pick<CodexDecisionOption, 'kind' | 'label' | 'source' | 'target'>>;
+  ownPrizesLeftBefore: number;
+  ownPrizesLeftAfter: number;
+};
+
+export type SelfPlayMetrics = {
+  firstAttackPlayerTurn?: number;
+  firstKnockoutPlayerTurn?: number;
+  attackedByTurn2: boolean;
+  knockedOutByTurn2: boolean;
+  attackedByTurn3: boolean;
+  knockedOutByTurn3: boolean;
+  knockoutTurns: number[];
+  consecutiveKnockoutRate?: number;
+  winner?: number;
+};
