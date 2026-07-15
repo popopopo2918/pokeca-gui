@@ -9,6 +9,8 @@ import { WORKSPACES_DIR } from './workspaces';
 import { dataSyncEnabled, pullAll } from './dataStore';
 import { codexMatchManager } from './codexMatches';
 import { handleCodexRoute } from './codexRoutes';
+import { codexSelfPlayManager } from './codexSelfPlay';
+import { handleCodexSelfPlayRoute } from './codexSelfPlayRoutes';
 
 const port = Number(process.env.PORT ?? process.env.LOCAL_ENGINE_PORT ?? 8095);
 const host = process.env.LOCAL_ENGINE_HOST ?? (process.env.PORT ? '0.0.0.0' : '127.0.0.1');
@@ -170,6 +172,28 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/local-engine/health') {
     writeJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (url.pathname.startsWith('/local-engine/codex-self-play')) {
+    try {
+      const raw = req.method === 'POST' ? await readBody(req) : '';
+      const body = raw ? JSON.parse(raw) : {};
+      const seatHeader = req.headers['x-cabt-self-play-seat'];
+      const coordinatorHeader = req.headers['x-cabt-self-play-coordinator'];
+      const seatCode = (Array.isArray(seatHeader) ? seatHeader[0] : seatHeader)?.trim() ?? '';
+      const coordinatorCode = (Array.isArray(coordinatorHeader) ? coordinatorHeader[0] : coordinatorHeader)?.trim() ?? '';
+      const result = await handleCodexSelfPlayRoute({
+        method: req.method ?? 'GET',
+        pathname: url.pathname,
+        body,
+        seatCode,
+        coordinatorCode,
+      }, codexSelfPlayManager);
+      writeJson(res, result?.status ?? 404, result?.body ?? { ok: false, error: 'Not found' });
+    } catch (error) {
+      writeJson(res, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
     return;
   }
 
@@ -417,6 +441,7 @@ function logCommand(clientId: string, command: any, response: any): void {
 // Kill every engine bridge when the server stops, so no Python processes leak.
 function closeAllControllers(): void {
   codexMatchManager.closeAll();
+  codexSelfPlayManager.closeAll();
   for (const [id, entry] of controllers) {
     try {
       entry.controller.close();
