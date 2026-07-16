@@ -25,6 +25,8 @@
     gameLogs?: GameLogEntry[];
     player1DeckLocked?: boolean;
     player2DeckLocked?: boolean;
+    player1DeckSourceLocked?: boolean;
+    player2DeckSourceLocked?: boolean;
     busy?: boolean;
     catalogBusy?: boolean;
     error?: string;
@@ -54,6 +56,8 @@
     gameLogs = [],
     player1DeckLocked = false,
     player2DeckLocked = false,
+    player1DeckSourceLocked = false,
+    player2DeckSourceLocked = false,
     busy = false,
     catalogBusy = false,
     error = '',
@@ -161,7 +165,8 @@
 
           <div class="field">
             <label for="p1-deck">デッキ</label>
-            <select id="p1-deck" value={player1DeckSource} disabled={busy}
+            <select id="p1-deck" value={player1DeckSource} disabled={busy || player1DeckSourceLocked}
+              title={player1DeckSourceLocked ? 'このAIは専用デッキを使用します' : undefined}
               onchange={(event) => {
                 player1DeckSource = event.currentTarget.value;
                 onDeckSourceChange(0, event.currentTarget.value);
@@ -230,7 +235,8 @@
 
           <div class="field">
             <label for="p2-deck">デッキ</label>
-            <select id="p2-deck" value={player2DeckSource} disabled={busy}
+            <select id="p2-deck" value={player2DeckSource} disabled={busy || player2DeckSourceLocked}
+              title={player2DeckSourceLocked ? 'このAIは専用デッキを使用します' : undefined}
               onchange={(event) => {
                 player2DeckSource = event.currentTarget.value;
                 onDeckSourceChange(1, event.currentTarget.value);

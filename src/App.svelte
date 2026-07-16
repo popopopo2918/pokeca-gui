@@ -41,6 +41,7 @@
     type PlayerControl,
   } from './lib/game/httpClient';
   import { validateControls } from './lib/game/controlMode';
+  import { fixedAgentDeckSource } from './lib/game/agentDeck';
   import { formatCabtDeckList } from './lib/game/deckImport';
   import { labelFor } from './lib/game/labels';
   import cardRows from './lib/cabt/cardData.generated.json';
@@ -292,6 +293,8 @@
   let themePreference = $derived(viewSettingsStore.themePreference);
   let selectedPlayer1Agent = $derived(agents.find((agent) => agent.id === player1AgentId));
   let selectedPlayer2Agent = $derived(agents.find((agent) => agent.id === player2AgentId));
+  let player1FixedDeckSource = $derived(fixedAgentDeckSource(player1Control, player1AgentId, agents));
+  let player2FixedDeckSource = $derived(fixedAgentDeckSource(player2Control, player2AgentId, agents));
   let selectedPlayer1Deck = $derived(agents.find((agent) => agent.id === player1DeckSource && agent.deckUrl));
   let selectedPlayer2Deck = $derived(agents.find((agent) => agent.id === player2DeckSource && agent.deckUrl));
   onMount(() => {
@@ -407,20 +410,24 @@
       document.body.classList.remove('prompt-gallery-page');
     };
   });
-  // AIのペアデッキは「そのAIを選んだ時の初期値」としてだけ適用し、以後は
-  // 自由に別のデッキ（サンプル・保存デッキ・貼り付け）へ変更できる。
+  // 通常AIのペアデッキは選択時の初期値だけに使う。fixedDeckのAIは
+  // 検証済みの専用デッキを前提にするため、選択中は常にそのデッキへ戻す。
   let lastPairedAgent1 = typeof storedMatchSetup.player1AgentId === 'string' ? storedMatchSetup.player1AgentId : '';
   let lastPairedAgent2 = typeof storedMatchSetup.player2AgentId === 'string' ? storedMatchSetup.player2AgentId : '';
   $effect(() => {
-    if (player1Control === 'agent' && selectedPlayer1Agent?.deckUrl && lastPairedAgent1 !== selectedPlayer1Agent.id) {
-      lastPairedAgent1 = selectedPlayer1Agent.id;
-      player1DeckSource = selectedPlayer1Agent.id;
+    const paired = selectedPlayer1Agent?.deckUrl ? selectedPlayer1Agent.id : null;
+    if (player1Control !== 'agent' || !paired) return;
+    if (lastPairedAgent1 !== paired || (player1FixedDeckSource && player1DeckSource !== player1FixedDeckSource)) {
+      lastPairedAgent1 = paired;
+      player1DeckSource = paired;
     }
   });
   $effect(() => {
-    if (player2Control === 'agent' && selectedPlayer2Agent?.deckUrl && lastPairedAgent2 !== selectedPlayer2Agent.id) {
-      lastPairedAgent2 = selectedPlayer2Agent.id;
-      player2DeckSource = selectedPlayer2Agent.id;
+    const paired = selectedPlayer2Agent?.deckUrl ? selectedPlayer2Agent.id : null;
+    if (player2Control !== 'agent' || !paired) return;
+    if (lastPairedAgent2 !== paired || (player2FixedDeckSource && player2DeckSource !== player2FixedDeckSource)) {
+      lastPairedAgent2 = paired;
+      player2DeckSource = paired;
     }
   });
   // デッキ選択の変更を直接処理する:「貼り付け」の内容は退避/復元し、
@@ -1986,6 +1993,8 @@
         {gameLogs}
         player1DeckLocked={player1DeckSource !== 'import'}
         player2DeckLocked={player2DeckSource !== 'import'}
+        player1DeckSourceLocked={player1FixedDeckSource !== null}
+        player2DeckSourceLocked={player2FixedDeckSource !== null}
         busy={sessionBusy || player1DeckLoading || player2DeckLoading}
         {catalogBusy}
         {error}
