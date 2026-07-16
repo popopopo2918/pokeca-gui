@@ -144,7 +144,23 @@ def load_agent(agent_path: str | None) -> AgentFn:
     agent = getattr(module, "agent", None)
     if not callable(agent):
         raise AttributeError(f"{path} does not export callable agent(obs)")
-    return agent
+
+    def call_agent(obs: dict[str, Any]) -> list[int]:
+        # Multi-file agents may import sibling modules lazily on their first move.
+        # Restore the same import/cwd context used while loading main.py for every call.
+        call_cwd = Path.cwd()
+        sys.path.insert(0, str(path.parent))
+        try:
+            os.chdir(path.parent)
+            return agent(obs)
+        finally:
+            os.chdir(call_cwd)
+            try:
+                sys.path.remove(str(path.parent))
+            except ValueError:
+                pass
+
+    return call_agent
 
 
 class Session:
