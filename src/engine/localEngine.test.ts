@@ -83,13 +83,16 @@ describe('LocalEngineController', () => {
     };
 
     const res = await engine.start({
-      player1: { deck: Array(60).fill(1), control: 'agent', agentId: 'first-legal' },
+      player1: { deck: Array(60).fill(1), control: 'agent', agentId: 'alakazam-playbook' },
       player2: { deck: Array(60).fill(2), control: 'agent', agentId: 'mega-lucario-ex' },
     });
 
     expect(res.ok).toBe(true);
     expect(bridgePayload?.agentControlled).toEqual([true, true]);
-    expect(bridgePayload?.agentPaths).toEqual([undefined, 'public/agents/mega-lucario-ex/main.py']);
+    expect(bridgePayload?.agentPaths).toEqual([
+      'public/agents/alakazam-playbook/main.py',
+      'public/agents/mega-lucario-ex/main.py',
+    ]);
   });
 
   it('matches real CABT main-phase hand options with omitted source fields', () => {

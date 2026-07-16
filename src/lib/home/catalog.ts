@@ -4,6 +4,7 @@ export type AgentOption = {
   description?: string;
   path?: string;
   deckUrl?: string;
+  fixedDeck?: boolean;
 };
 
 export type GameLogEntry = {
