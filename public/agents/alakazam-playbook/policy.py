@@ -12,6 +12,7 @@ from memory import AgentMemory, update_known_deck_and_prizes
 from model import Area, GameView, LegalOption, OptionType, SelectContext, SelectType
 from proposals import IntentUpdate, PendingIntent, Proposal
 from rule_manifest import assert_rule_coverage
+from rules.deck_safety import proposal_is_deck_safe
 
 
 Rule = Callable[[GameView, AgentMemory], Proposal | None]
@@ -53,6 +54,7 @@ def _isolated_memory(memory: AgentMemory) -> AgentMemory:
     isolated.known_deck = (
         None if memory.known_deck is None else memory.known_deck.copy()
     )
+    isolated.known_absent_deck_ids = set(memory.known_absent_deck_ids)
     isolated.known_prize_ids = memory.known_prize_ids.copy()
     isolated.opponent_public_card_ids = set(memory.opponent_public_card_ids)
     isolated.trace = []
@@ -94,13 +96,18 @@ def _metadata_int(intent: PendingIntent, key: str) -> int | None:
 
 def _allowed_intent_card_ids(
     intent: PendingIntent,
+    advance_steps: int = 1,
 ) -> frozenset[int] | None:
     effect_card_id = int(intent.effect_card_id or -1)
     if intent.card_groups and effect_card_id in (
         int(CardId.HILDA),
         int(CardId.DAWN),
     ):
-        group_index = len(intent.card_groups) - len(intent.remaining_contexts)
+        group_index = (
+            len(intent.card_groups)
+            - len(intent.remaining_contexts)
+            + max(0, int(advance_steps) - 1)
+        )
         if 0 <= group_index < len(intent.card_groups):
             return frozenset(int(card_id) for card_id in intent.card_groups[group_index])
         raise ValueError("複数段階意図のカード群が現在の選択段階と一致しません。")
@@ -139,7 +146,7 @@ def _validate_intent_choice(
 ) -> None:
     if not intent.matches(view):
         raise ValueError("現在の選択画面が記録済み意図と一致しません。")
-    expected = intent.advance(view)
+    expected = intent.advance(view, proposal.intent_advance_steps)
     if proposal.intent_update is IntentUpdate.SET:
         if expected is None or proposal.next_intent != expected:
             raise ValueError("次の意図が現在の選択段階と一致しません。")
@@ -147,14 +154,34 @@ def _validate_intent_choice(
         raise ValueError("完了していない複数段階意図を消去しようとしています。")
 
     selected = _selected_options(view, proposal.option_indices)
-    allowed_ids = _allowed_intent_card_ids(intent)
+    allowed_ids = _allowed_intent_card_ids(
+        intent, proposal.intent_advance_steps
+    )
+    effect_card_id = int(intent.effect_card_id or -1)
+    if effect_card_id == int(CardId.POKE_PAD) and allowed_ids is not None:
+        option_ids = {
+            int(option.card_id)
+            for option in view.options
+            if option.card_id is not None
+        }
+        if not option_ids.intersection(allowed_ids):
+            from rules.poke_pad import plan_poke_pad_targets
+
+            replanned_ids = next(
+                (
+                    frozenset(int(card_id) for card_id in plan.card_ids)
+                    for plan in plan_poke_pad_targets(view)
+                    if option_ids.intersection(plan.card_ids)
+                ),
+                frozenset(),
+            )
+            allowed_ids = replanned_ids
     if allowed_ids is not None and any(
         option.card_id is None or int(option.card_id) not in allowed_ids
         for option in selected
     ):
         raise ValueError("選択したカードが記録済み意図に含まれていません。")
 
-    effect_card_id = int(intent.effect_card_id or -1)
     if effect_card_id == int(CardId.RARE_CANDY):
         if any(
             option.card_id != int(CardId.ALAKAZAM)
@@ -200,6 +227,12 @@ def validate_proposal(
         if memory.pending_intent is None:
             raise ValueError("継続する記録済み意図がありません。")
         _validate_intent_choice(view, proposal, memory.pending_intent)
+    if not proposal_is_deck_safe(
+        view,
+        proposal,
+        pending_intent=memory.pending_intent,
+    ):
+        raise ValueError("山札安全予算を超える任意行動です。")
 
 
 def _default_rules(prefer_first: bool) -> tuple[tuple[Rule, ...], tuple[Rule, ...], tuple[Callable, ...]]:

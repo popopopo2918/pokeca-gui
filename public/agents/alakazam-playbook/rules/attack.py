@@ -4,8 +4,17 @@ from math import ceil
 import re
 
 from cards import AttackId, CardId
+from memory import card_may_be_in_deck
 from model import Area, OptionType, SelectContext, SelectType
 from proposals import PendingIntent, Proposal, covers
+from rules.board_plan import (
+    OPENING_PIVOT_ATTACH_PRIORITY,
+    OPENING_PIVOT_RETREAT_PRIORITY,
+    attack_line_count,
+    is_opening_attack_phase,
+    opening_abra_survival_pivot,
+    powered_alakazam_exists,
+)
 from rules.telepath import build_telepath_bench_intent
 
 
@@ -16,6 +25,11 @@ _ATTACKER_IDS = frozenset({
     int(CardId.KADABRA),
     int(CardId.ALAKAZAM),
 })
+_FAN_ROTOM_DAMAGE = 70
+_FAN_ROTOM_STADIUM_PRIORITY = 640
+_FAN_ROTOM_ATTACH_PRIORITY = 635
+_FAN_ROTOM_BOSS_PRIORITY = 630
+_FAN_ROTOM_ATTACK_PRIORITY = 625
 
 
 def _normalized_text(text: str) -> str:
@@ -97,13 +111,41 @@ def _is_hand_power_effect_immune(view, pokemon) -> bool:
     )
 
 
-def can_hand_power_ko(view, hand_size: int | None = None) -> bool:
-    """Return whether Powerful Hand can KO the public Active Pokémon now."""
+def can_hand_power_ko(
+    view,
+    hand_size: int | None = None,
+    *,
+    require_legal_option: bool = True,
+    assume_active_psychic: bool = False,
+) -> bool:
+    """公開盤面上、ハンドパワーで相手をきぜつさせられるか返す。
+
+    効果解決中はMAINの攻撃optionが提示されないため、山札安全計算だけは
+    ``require_legal_option=False`` で盤面・エネルギー・状態異常から判定する。
+    """
     target = view.opponent_active
     needed = view.required_hand_for_active_ko
     available_hand = view.hand_size if hand_size is None else int(hand_size)
-    return (
+    active = view.active
+    board_ready = (
+        view.is_own_turn
+        and active is not None
+        and int(active.id) == int(CardId.ALAKAZAM)
+        and (
+            view.has_psychic_energy(active)
+            or assume_active_psychic
+        )
+        and not bool(view.own.get("asleep"))
+        and not bool(view.own.get("paralyzed"))
+        and not bool(view.own.get("confused"))
+    )
+    attack_ready = (
         _hand_power_option(view) is not None
+        if require_legal_option
+        else board_ready
+    )
+    return (
+        attack_ready
         and target is not None
         and needed is not None
         and available_hand >= needed
@@ -121,9 +163,239 @@ def _wins_by_knocking_out(view, pokemon) -> bool:
 
 
 def _attack_priority(view, target) -> int:
-    if len(view.field) >= 2 or _wins_by_knocking_out(view, target):
+    if (
+        len(view.field) >= 2
+        or len(view.opponent_field) <= 1
+        or _wins_by_knocking_out(view, target)
+    ):
         return 1000
     return 740
+
+
+def _fan_rotom_active(view):
+    active = view.active
+    if (
+        not is_opening_attack_phase(view)
+        or active is None
+        or int(active.id) != int(CardId.FAN_ROTOM)
+    ):
+        return None
+    return active
+
+
+def _stadium_is_in_play(view) -> bool:
+    return any(
+        card is not None
+        for card in (view.current.get("stadium") or [])
+    )
+
+
+def _fan_rotom_attack_option(view):
+    if not _is_main_selection(view) or _fan_rotom_active(view) is None:
+        return None
+    return min(
+        (
+            option
+            for option in view.options
+            if option.type == int(OptionType.ATTACK)
+            and option.attack_id == int(AttackId.ASSAULT_LANDING)
+        ),
+        key=lambda option: option.position,
+        default=None,
+    )
+
+
+def _fan_rotom_has_energy(view) -> bool:
+    active = _fan_rotom_active(view)
+    return active is not None and bool(
+        active.energies or active.energy_card_ids
+    )
+
+
+def _fan_rotom_attach_option(view):
+    active = _fan_rotom_active(view)
+    if active is None or _fan_rotom_has_energy(view):
+        return None
+    energy_rank = {
+        int(CardId.BASIC_PSYCHIC): 0,
+        int(CardId.TELEPATH_PSYCHIC_ENERGY): 1,
+    }
+    return min(
+        (
+            option
+            for option in view.options
+            if option.type == int(OptionType.ATTACH)
+            and option.card_id in energy_rank
+            and option.target is not None
+            and option.target.serial == active.serial
+        ),
+        key=lambda option: (
+            energy_rank[int(option.card_id)],
+            10**9 if option.card_serial is None else int(option.card_serial),
+            option.position,
+        ),
+        default=None,
+    )
+
+
+def _development_supporter_is_playable(view) -> bool:
+    return any(
+        option.type == int(OptionType.PLAY)
+        and option.card_id in (int(CardId.HILDA), int(CardId.DAWN))
+        for option in view.options
+    )
+
+
+def _boss_play_option(view):
+    return min(
+        (
+            option
+            for option in view.options
+            if option.type == int(OptionType.PLAY)
+            and option.card_id == int(CardId.BOSSES_ORDERS)
+            and option.card_serial is not None
+        ),
+        key=lambda option: (int(option.card_serial), option.position),
+        default=None,
+    )
+
+
+def _fan_rotom_boss_target(view):
+    if _boss_play_option(view) is None or _development_supporter_is_playable(view):
+        return None
+    return min(
+        (
+            pokemon
+            for pokemon in view.opponent_bench
+            if pokemon.serial is not None and int(pokemon.hp) <= _FAN_ROTOM_DAMAGE
+        ),
+        key=lambda pokemon: (
+            -_public_prize_value(view, pokemon),
+            int(pokemon.hp),
+            int(pokemon.serial),
+            int(pokemon.id),
+        ),
+        default=None,
+    )
+
+
+def _fan_rotom_ko_target(view):
+    if _fan_rotom_active(view) is None or attack_line_count(view) < 1:
+        return None
+    active = view.opponent_active
+    if active is not None and int(active.hp) <= _FAN_ROTOM_DAMAGE:
+        return active
+    return _fan_rotom_boss_target(view)
+
+
+def _fan_rotom_stadium_proposal(view) -> Proposal | None:
+    if _fan_rotom_ko_target(view) is None or _stadium_is_in_play(view):
+        return None
+    if not (_fan_rotom_has_energy(view) or _fan_rotom_attach_option(view) is not None):
+        return None
+    option = min(
+        (
+            candidate
+            for candidate in view.options
+            if candidate.type == int(OptionType.PLAY)
+            and candidate.card_id == int(CardId.BATTLE_CAGE)
+            and candidate.card_serial is not None
+        ),
+        key=lambda candidate: (int(candidate.card_serial), candidate.position),
+        default=None,
+    )
+    if option is None:
+        return None
+    return Proposal(
+        (option.position,),
+        _FAN_ROTOM_STADIUM_PRIORITY,
+        "スピンロトムの70ダメージで確実にKOするため、先にスタジアムを出す",
+        ("PLAYBOOK-BATTLE-CAGE", "PLAYBOOK-STOP-WHEN-KO"),
+    )
+
+
+def _fan_rotom_attach_proposal(view) -> Proposal | None:
+    if _fan_rotom_ko_target(view) is None or not _stadium_is_in_play(view):
+        return None
+    option = _fan_rotom_attach_option(view)
+    if option is None:
+        return None
+    return Proposal(
+        (option.position,),
+        _FAN_ROTOM_ATTACH_PRIORITY,
+        "70ダメージで確実にKOできる例外局面なのでスピンロトムへエネルギーを付ける",
+        (
+            "FLOW-ATTACK-ENERGY",
+            "PLAYBOOK-BASIC-PSYCHIC",
+            "PLAYBOOK-STOP-WHEN-KO",
+        ),
+    )
+
+
+def _fan_rotom_boss_proposal(view) -> Proposal | None:
+    target = _fan_rotom_boss_target(view)
+    boss = _boss_play_option(view)
+    if (
+        target is None
+        or boss is None
+        or not _stadium_is_in_play(view)
+        or _fan_rotom_attack_option(view) is None
+    ):
+        return None
+    intent = PendingIntent.from_view(
+        view,
+        kind="BOSS_KO_TARGET",
+        card_ids=(target.id,),
+        target_serial=target.serial,
+        max_cards=1,
+        metadata=(("reason", "他の展開サポートがなく、70ダメージで確実にKOできる公開対象"),),
+        effect_card_id=CardId.BOSSES_ORDERS,
+        effect_serial=boss.card_serial,
+        remaining_contexts=(SelectContext.SWITCH,),
+    )
+    return Proposal(
+        (boss.position,),
+        _FAN_ROTOM_BOSS_PRIORITY,
+        "ヒカリ・トウコで展開できないため、ボスで70ダメージ圏内だけを呼び出す",
+        ("FLOW-ATTACK-BOSS", "PLAYBOOK-BOSS", "PLAYBOOK-STOP-WHEN-KO"),
+        intent,
+    )
+
+
+def _fan_rotom_attack_proposal(view) -> Proposal | None:
+    target = view.opponent_active
+    option = _fan_rotom_attack_option(view)
+    if (
+        option is None
+        or target is None
+        or _fan_rotom_ko_target(view) is None
+        or int(target.hp) > _FAN_ROTOM_DAMAGE
+        or not _stadium_is_in_play(view)
+    ):
+        return None
+    return Proposal(
+        (option.position,),
+        _FAN_ROTOM_ATTACK_PRIORITY,
+        f"スピンロトムの70ダメージで残りHP{target.hp}を確実にKOする",
+        ("PLAYBOOK-STOP-WHEN-KO", "PLAYBOOK-BOARD-MINIMUM"),
+    )
+
+
+def _fan_rotom_fast_ko_proposal(view) -> Proposal | None:
+    return max(
+        (
+            proposal
+            for proposal in (
+                _fan_rotom_stadium_proposal(view),
+                _fan_rotom_attach_proposal(view),
+                _fan_rotom_boss_proposal(view),
+                _fan_rotom_attack_proposal(view),
+            )
+            if proposal is not None
+        ),
+        key=lambda proposal: proposal.priority,
+        default=None,
+    )
 
 
 def _hammer_play_option(view):
@@ -168,6 +440,30 @@ def _powered_kadabra_can_evolve_now(view) -> bool:
     )
 
 
+def _opening_powered_candy_route_can_evolve_now(view) -> bool:
+    return (
+        is_opening_attack_phase(view)
+        and not any(
+            int(pokemon.id) == int(CardId.ALAKAZAM)
+            and view.has_psychic_energy(pokemon)
+            for pokemon in view.field
+        )
+        and int(CardId.RARE_CANDY) in view.hand_ids
+        and int(CardId.ALAKAZAM) in view.hand_ids
+        and any(
+            option.type == int(OptionType.PLAY)
+            and option.card_id == int(CardId.RARE_CANDY)
+            for option in view.options
+        )
+        and any(
+            int(pokemon.id) == int(CardId.ABRA)
+            and pokemon.area == int(Area.BENCH)
+            and view.has_psychic_energy(pokemon)
+            for pokemon in view.eligible_abras
+        )
+    )
+
+
 def _kadabra_draw_available(view) -> bool:
     return any(
         option.type == int(OptionType.EVOLVE)
@@ -183,6 +479,17 @@ def _active_dunsparce_can_evolve_now(view) -> bool:
         and option.card_id == int(CardId.DUDUNSPARCE)
         and option.target is not None
         and option.target.serial == active.serial
+        for option in view.options
+    )
+
+
+def _active_dudunsparce_can_return_now(view) -> bool:
+    active = view.active
+    return active is not None and any(
+        option.type == int(OptionType.ABILITY)
+        and option.card_id == int(CardId.DUDUNSPARCE)
+        and option.source is not None
+        and option.source.serial == active.serial
         for option in view.options
     )
 
@@ -211,7 +518,10 @@ def _air_balloon_can_attach_to_active(view) -> bool:
 def _psychic_attach_proposal(view, memory) -> Proposal | None:
     if not _is_main_selection(view) or _hand_power_option(view) is not None:
         return None
-    if _powered_kadabra_can_evolve_now(view):
+    if (
+        _powered_kadabra_can_evolve_now(view)
+        or _opening_powered_candy_route_can_evolve_now(view)
+    ):
         return None
     basic_can_power_alakazam = any(
         option.type == int(OptionType.ATTACH)
@@ -260,6 +570,20 @@ def _psychic_attach_proposal(view, memory) -> Proposal | None:
             for option in view.options
         )
     )
+    searchable_candy_route_ready = (
+        int(CardId.RARE_CANDY) in view.hand_ids
+        and int(CardId.ALAKAZAM) not in view.hand_ids
+        and not any(
+            int(pokemon.id) == int(CardId.ALAKAZAM)
+            for pokemon in view.field
+        )
+        and card_may_be_in_deck(view, memory, CardId.ALAKAZAM)
+        and any(
+            option.type == int(OptionType.PLAY)
+            and option.card_id == int(CardId.POKE_PAD)
+            for option in view.options
+        )
+    )
     powered_candy_target_exists = any(
         view.has_psychic_energy(pokemon)
         for pokemon in view.eligible_abras
@@ -279,7 +603,9 @@ def _psychic_attach_proposal(view, memory) -> Proposal | None:
             and not view.has_psychic_energy(option.target)
         )
     }
-    if candy_route_ready and not powered_candy_target_exists:
+    if (
+        candy_route_ready or searchable_candy_route_ready
+    ) and not powered_candy_target_exists:
         candy_target = min(
             (
                 pokemon
@@ -287,6 +613,13 @@ def _psychic_attach_proposal(view, memory) -> Proposal | None:
                 if pokemon.serial in attachable_abra_serials
             ),
             key=lambda pokemon: (
+                0
+                if (
+                    view.own_turn_number >= 2
+                    and active is not None
+                    and pokemon.serial == active.serial
+                )
+                else 1,
                 10**9 if pokemon.serial is None else int(pokemon.serial),
                 int(pokemon.area),
                 int(pokemon.index or 0),
@@ -305,6 +638,32 @@ def _psychic_attach_proposal(view, memory) -> Proposal | None:
             int(pokemon.id) == int(CardId.KADABRA)
             and pokemon.serial is not None
             and not view.has_psychic_energy(pokemon)
+        )
+    )
+    old_unpowered_abra_serials = frozenset(
+        int(pokemon.serial)
+        for pokemon in view.field
+        if (
+            int(pokemon.id) == int(CardId.ABRA)
+            and pokemon.serial is not None
+            and not pokemon.appear_this_turn
+            and not view.has_psychic_energy(pokemon)
+        )
+    )
+    reserve_old_abra_before_next_kadabra_draw = (
+        is_opening_attack_phase(view)
+        and len(old_unpowered_abra_serials) >= 2
+        and _kadabra_draw_available(view)
+        and any(
+            int(pokemon.id) == int(CardId.KADABRA)
+            and pokemon.appear_this_turn
+            for pokemon in view.field
+        )
+        and not any(
+            int(pokemon.id) == int(CardId.KADABRA)
+            and not pokemon.appear_this_turn
+            and not view.has_psychic_energy(pokemon)
+            for pokemon in view.field
         )
     )
     active_unpowered_alakazam = (
@@ -382,6 +741,11 @@ def _psychic_attach_proposal(view, memory) -> Proposal | None:
             and int(active.id) in _ATTACKER_IDS
             and target.serial == active.serial
         )
+        mature_active_kadabra = (
+            active_turn_two_attacker
+            and int(target.id) == int(CardId.KADABRA)
+            and not target.appear_this_turn
+        )
         reserved = (
             reserved_serial is not None
             and target.serial == reserved_serial
@@ -399,15 +763,30 @@ def _psychic_attach_proposal(view, memory) -> Proposal | None:
             target.serial is not None
             and int(target.serial) in future_alakazam_target_serials
         )
+        candy_draw_reserve = (
+            reserve_old_abra_before_next_kadabra_draw
+            and target.serial is not None
+            and int(target.serial) in old_unpowered_abra_serials
+        )
+        active_candy_draw_reserve = (
+            candy_draw_reserve
+            and active is not None
+            and target.serial == active.serial
+        )
+        reserved_candy_draw_reserve = candy_draw_reserve and reserved
         target_rank = (
             0 if active_alakazam
             else 1 if active_immediate_alakazam_target
             else 2 if int(target.id) == int(CardId.ALAKAZAM)
             else 3 if immediate_alakazam_target
-            else 4 if future_alakazam_target
-            else 5 if active_turn_two_attacker
-            else 6 if reserved
-            else 7 + stage_rank[int(target.id)]
+            else 4 if mature_active_kadabra
+            else 5 if active_candy_draw_reserve
+            else 6 if reserved_candy_draw_reserve
+            else 7 if candy_draw_reserve
+            else 8 if future_alakazam_target
+            else 9 if active_turn_two_attacker
+            else 10 if reserved
+            else 11 + stage_rank[int(target.id)]
         )
         telepath_first = (
             option.card_id == int(CardId.TELEPATH_PSYCHIC_ENERGY)
@@ -493,6 +872,7 @@ def _turn_three_retreat_energy_attach(view) -> Proposal | None:
         return None
     if (
         _active_dunsparce_can_evolve_now(view)
+        or _active_dudunsparce_can_return_now(view)
         or _air_balloon_can_attach_to_active(view)
         or _kadabra_draw_available(view)
     ):
@@ -504,31 +884,98 @@ def _turn_three_retreat_energy_attach(view) -> Proposal | None:
     ):
         return None
 
+    options = tuple(
+        candidate
+        for candidate in view.options
+        if candidate.type == int(OptionType.ATTACH)
+        and candidate.card_id in (
+            int(CardId.BASIC_PSYCHIC),
+            int(CardId.TELEPATH_PSYCHIC_ENERGY),
+        )
+        and candidate.target is not None
+        and candidate.target.area == int(Area.ACTIVE)
+        and candidate.target.serial == active.serial
+    )
     option = min(
         (
             candidate
-            for candidate in view.options
-            if candidate.type == int(OptionType.ATTACH)
-            and candidate.card_id == int(CardId.BASIC_PSYCHIC)
-            and candidate.target is not None
-            and candidate.target.area == int(Area.ACTIVE)
-            and candidate.target.serial == active.serial
+            for candidate in options
         ),
-        key=lambda candidate: candidate.position,
+        key=lambda candidate: (
+            0 if candidate.card_id == int(CardId.BASIC_PSYCHIC) else 1,
+            candidate.position,
+        ),
         default=None,
     )
     if option is None:
         return None
+    emergency_telepath = option.card_id == int(CardId.TELEPATH_PSYCHIC_ENERGY)
+    if emergency_telepath and (
+        any(
+            candidate.type == int(OptionType.PLAY)
+            and candidate.card_id == int(CardId.HILDA)
+            for candidate in view.options
+        )
+        or any(
+            candidate.type == int(OptionType.ABILITY)
+            and candidate.card_id in (
+                int(CardId.DUDUNSPARCE),
+                int(CardId.FEZANDIPITI_EX),
+            )
+            for candidate in view.options
+        )
+        or any(
+            candidate.type == int(OptionType.EVOLVE)
+            and candidate.card_id in (
+                int(CardId.KADABRA),
+                int(CardId.ALAKAZAM),
+            )
+            for candidate in view.options
+        )
+        or (
+            int(CardId.RARE_CANDY) in view.hand_ids
+            and int(CardId.ALAKAZAM) in view.hand_ids
+            and any(
+                candidate.type == int(OptionType.PLAY)
+                and candidate.card_id == int(CardId.RARE_CANDY)
+                for candidate in view.options
+            )
+        )
+    ):
+        return None
+    reason = (
+        f"{view.own_turn_number}ターン目の攻撃を開始するため、"
+        + (
+            "他の退避経路がない場合だけテレパス超を前の逃げコストとして確保する"
+            if emergency_telepath
+            else "基本超を前の逃げコストとして確保する"
+        )
+    )
+    rule_ids = [
+        "FLOW-ATTACK-HAND",
+        "PLAYBOOK-PROMOTE-COMPLETE",
+        "PLAYBOOK-NO-ENRICHING-RETREAT",
+    ]
+    next_intent = None
+    if emergency_telepath:
+        rule_ids.extend(("PLAYBOOK-TELEPATH-LIMIT", "PLAYBOOK-SEARCH-INTENT"))
+        next_intent = build_telepath_bench_intent(
+            view,
+            option,
+            active,
+            reason,
+        )
     return Proposal(
         (option.position,),
-        985,
-        f"{view.own_turn_number}ターン目の攻撃を開始するため、基本超を前の逃げコストとして確保する",
         (
-            "FLOW-ATTACK-HAND",
-            "PLAYBOOK-PROMOTE-COMPLETE",
-            "PLAYBOOK-NO-ENRICHING-RETREAT",
+            OPENING_PIVOT_ATTACH_PRIORITY
+            if is_opening_attack_phase(view)
+            else 985
         ),
-        alternative="リッチとテレパス超は逃げコスト用に貼らない",
+        reason,
+        tuple(rule_ids),
+        next_intent,
+        alternative="リッチは逃げコスト用に貼らず、テレパス超も他の退避・ドロー経路を使い切ってから使う",
     )
 
 
@@ -587,7 +1034,11 @@ def _retreat_to_powered_alakazam(view) -> Proposal | None:
     )
     return Proposal(
         (retreat.position,),
-        995 if immediate_ko else 760,
+        (
+            OPENING_PIVOT_RETREAT_PRIORITY
+            if is_opening_attack_phase(view)
+            else 995 if immediate_ko else 760
+        ),
         "退避役をにがして、超エネルギー付きフーディンをバトル場へ出す",
         (
             "FLOW-ATTACK-HAND",
@@ -595,6 +1046,41 @@ def _retreat_to_powered_alakazam(view) -> Proposal | None:
             "PLAYBOOK-NO-ENRICHING-RETREAT",
         ),
         alternative=f"target_serial={powered_alakazam.serial}",
+    )
+
+
+def _retreat_to_preserve_only_active_abra(view) -> Proposal | None:
+    if not _is_main_selection(view):
+        return None
+    active = view.active
+    pivot = opening_abra_survival_pivot(view)
+    if (
+        active is None
+        or pivot is None
+        or int(CardId.AIR_BALLOON) not in active.tool_ids
+    ):
+        return None
+    retreat = min(
+        (
+            option
+            for option in view.options
+            if option.type == int(OptionType.RETREAT)
+        ),
+        key=lambda option: option.position,
+        default=None,
+    )
+    if retreat is None:
+        return None
+    return Proposal(
+        (retreat.position,),
+        OPENING_PIVOT_RETREAT_PRIORITY,
+        "最初の場に1体しかいない唯一のケーシィを守り、退避役を前へ出す",
+        (
+            "PLAYBOOK-PRESERVE-ABRA",
+            "PLAYBOOK-AIR-BALLOON",
+            "PLAYBOOK-BOARD-MINIMUM",
+        ),
+        alternative=f"target_serial={pivot.serial}",
     )
 
 
@@ -678,7 +1164,6 @@ def choose_hammer_proposal(view) -> Proposal | None:
     candidates = _special_energy_candidates(view)
     if not candidates:
         return None
-
     def key(candidate):
         pokemon, energy, blocks_hand_power = candidate
         unlocks_ko = _hammer_unlocks_hand_power_ko(
@@ -703,6 +1188,11 @@ def choose_hammer_proposal(view) -> Proposal | None:
     unlocks_ko = _hammer_unlocks_hand_power_ko(
         view, pokemon, energy, blocks_hand_power
     )
+    generic_priority = (
+        840
+        if is_opening_attack_phase(view) and not powered_alakazam_exists(view)
+        else 870
+    )
     intent = PendingIntent.from_view(
         view,
         kind="DISCARD_SPECIAL_ENERGY",
@@ -720,7 +1210,7 @@ def choose_hammer_proposal(view) -> Proposal | None:
     )
     return Proposal(
         (hammer.position,),
-        980 if unlocks_ko else 870,
+        980 if unlocks_ko else generic_priority,
         "Hand Powerのダメカン効果を防ぐ特殊エネルギーを先に外す"
         if blocks_hand_power else "相手の公開特殊エネルギーを改造ハンマーで外す",
         ("FLOW-ATTACK-HAMMER", "PLAYBOOK-ENHANCED-HAMMER"),
@@ -746,7 +1236,9 @@ def choose_boss_proposal(view) -> Proposal | None:
     if boss is None:
         return None
 
-    if can_hand_power_ko(view):
+    active_ko_available = can_hand_power_ko(view)
+    active_prizes = _public_prize_value(view, view.opponent_active)
+    if active_ko_available and _wins_by_knocking_out(view, view.opponent_active):
         return None
 
     def public_threat(pokemon) -> int:
@@ -792,6 +1284,11 @@ def choose_boss_proposal(view) -> Proposal | None:
             needed,
             public_threat(pokemon),
         ))
+    if active_ko_available:
+        candidates = [
+            candidate for candidate in candidates
+            if candidate[1] > active_prizes
+        ]
     if not candidates:
         return None
 
@@ -824,7 +1321,12 @@ def choose_boss_proposal(view) -> Proposal | None:
     return Proposal(
         (boss.position,),
         970,
-        "Boss使用後の手札でもHand Powerのダメカン効果で公開対象をKOできる",
+        (
+            f"バトル場の{active_prizes}枚取りより、Boss使用後もKOできる"
+            f"{prizes}枚取りを優先する"
+            if active_ko_available
+            else "Boss使用後の手札でもHand Powerのダメカン効果で公開対象をKOできる"
+        ),
         ("FLOW-ATTACK-BOSS", "PLAYBOOK-BOSS"),
         intent,
     )
@@ -844,12 +1346,17 @@ def choose_boss_proposal(view) -> Proposal | None:
     "PLAYBOOK-ENHANCED-HAMMER",
     "PLAYBOOK-BOSS",
     "PLAYBOOK-BOARD-MINIMUM",
+    "PLAYBOOK-AIR-BALLOON",
+    "PLAYBOOK-PRESERVE-ABRA",
 )
 def propose_attack(view, memory) -> Proposal | None:
     hand_power = _hand_power_option(view)
     target = view.opponent_active
     needed = view.required_hand_for_active_ko
+    boss = choose_boss_proposal(view)
     if can_hand_power_ko(view):
+        if boss is not None:
+            return boss
         priority = _attack_priority(view, target)
         return Proposal(
             (hand_power.position,),
@@ -864,15 +1371,29 @@ def propose_attack(view, memory) -> Proposal | None:
             ),
         )
 
-    attach = _psychic_attach_proposal(view, memory)
-    retreat_attach = _turn_three_retreat_energy_attach(view)
+    fan_rotom = _fan_rotom_fast_ko_proposal(view)
+    # 70ダメージで今の相手を倒せる時だけは、同じ手貼り権を将来の
+    # フーディンへ回して確定KOを失わない。提案優先度は低いままなので、
+    # 手貼り権を使わない盤面展開は従来どおり先に行える。
+    attach = None if fan_rotom is not None else _psychic_attach_proposal(view, memory)
+    retreat_attach = (
+        None if fan_rotom is not None else _turn_three_retreat_energy_attach(view)
+    )
     retreat = _retreat_to_powered_alakazam(view)
+    preserve_abra_retreat = _retreat_to_preserve_only_active_abra(view)
     hammer = choose_hammer_proposal(view)
-    boss = choose_boss_proposal(view)
     return max(
         (
             proposal
-            for proposal in (attach, retreat_attach, retreat, hammer, boss)
+            for proposal in (
+                attach,
+                retreat_attach,
+                retreat,
+                preserve_abra_retreat,
+                hammer,
+                boss,
+                fan_rotom,
+            )
             if proposal is not None
         ),
         key=lambda proposal: proposal.priority,

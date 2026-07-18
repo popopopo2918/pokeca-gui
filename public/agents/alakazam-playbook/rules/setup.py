@@ -20,6 +20,12 @@ BENCH_PRIORITY = (
     CardId.DUNSPARCE,
     CardId.FAN_ROTOM,
 )
+SURVIVAL_BENCH_PRIORITY = (
+    CardId.SHAYMIN,
+    CardId.GENESECT,
+    CardId.PSYDUCK,
+    CardId.FEZANDIPITI_EX,
+)
 
 
 def _hand_index(option) -> int:
@@ -38,7 +44,7 @@ def _can_add_bench_card(view, selected: list, card_id: int) -> bool:
     if int(card_id) == int(CardId.ABRA):
         return total < 3
     if int(card_id) == int(CardId.DUNSPARCE):
-        return total < 3
+        return total < 2
     if int(card_id) == int(CardId.FAN_ROTOM):
         return total < 1
     return True
@@ -108,6 +114,31 @@ def propose_setup(view, memory, prefer_first: bool) -> Proposal | None:
         ):
             continue
         selected.append(option)
+
+    # 初期盤面が1体だけで中核たねも置けない時は、相手の最初の攻撃による
+    # 即時全滅を避けるためだけに、役割持ちのたねを1体追加する。中核を
+    # 1体でも置ける通常初手では、将来のケーシィ・ノコッチ枠を塞がない。
+    if not selected and len(view.field) <= 1 and capacity > 0:
+        survival_rank = {
+            int(card_id): index
+            for index, card_id in enumerate(SURVIVAL_BENCH_PRIORITY)
+        }
+        survival = min(
+            (
+                option
+                for option in cards
+                if option.card_id is not None
+                and int(option.card_id) in survival_rank
+            ),
+            key=lambda option: (
+                survival_rank[int(option.card_id)],
+                _hand_index(option),
+                option.position,
+            ),
+            default=None,
+        )
+        if survival is not None:
+            selected.append(survival)
 
     # If the engine requires more selections than the strategic candidates provide,
     # satisfy minCount deterministically with the remaining legal cards.

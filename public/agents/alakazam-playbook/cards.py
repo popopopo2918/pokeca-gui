@@ -33,6 +33,7 @@ class CardId(IntEnum):
 
 
 class AttackId(IntEnum):
+    ASSAULT_LANDING = 230
     HAND_POWER = 1072
 
 

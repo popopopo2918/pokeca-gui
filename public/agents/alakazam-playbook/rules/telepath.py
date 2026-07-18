@@ -3,15 +3,16 @@ from __future__ import annotations
 from cards import CardId
 from model import SelectContext
 from proposals import PendingIntent
+from rules.board_plan import MINIMUM_ATTACK_LINES, attack_line_count
 
 
 def build_telepath_bench_intent(view, option, target, reason: str) -> PendingIntent:
-    abra_field_count = sum(
-        int(pokemon.id) == int(CardId.ABRA)
-        for pokemon in view.field
-    )
     bench_space = max(0, int(view.own.get("benchMax", 5)) - len(view.bench))
-    max_cards = min(2, max(0, 3 - abra_field_count), bench_space)
+    max_cards = min(
+        2,
+        max(0, MINIMUM_ATTACK_LINES - attack_line_count(view)),
+        bench_space,
+    )
     return PendingIntent.from_view(
         view,
         kind="BENCH_PSYCHIC_BASICS",

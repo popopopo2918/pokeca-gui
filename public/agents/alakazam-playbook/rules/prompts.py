@@ -5,6 +5,8 @@ from collections.abc import Iterable, Sequence
 from cards import CardId
 from model import LegalOption, OptionType, SelectContext, SelectType
 from proposals import IntentUpdate, PendingIntent, Proposal, covers
+from rules.board_plan import opening_abra_survival_pivot
+from rules.deck_safety import max_safe_deck_removals
 from rules.poke_pad import plan_poke_pad_targets
 
 
@@ -19,6 +21,18 @@ _CARD_PROMPT_CONTEXTS = {
     int(CardId.DAWN): int(SelectContext.TO_HAND),
 }
 _MULTI_SCREEN_GROUP_EFFECTS = {int(CardId.HILDA), int(CardId.DAWN)}
+_DECK_SEARCH_EFFECT_IDS = frozenset({
+    int(CardId.BUDDY_BUDDY_POFFIN),
+    int(CardId.POKE_PAD),
+    int(CardId.FAN_ROTOM),
+    int(CardId.TELEPATH_PSYCHIC_ENERGY),
+    int(CardId.HILDA),
+    int(CardId.DAWN),
+})
+_ATTACK_PSYCHIC_IDS = frozenset({
+    int(CardId.BASIC_PSYCHIC),
+    int(CardId.TELEPATH_PSYCHIC_ENERGY),
+})
 _INTENT_PRIORITY = 1100
 
 
@@ -129,11 +143,59 @@ def _choose_by_card_priority(
     return tuple(chosen)
 
 
+def _is_final_ko_energy_screen(view, intent: PendingIntent) -> bool:
+    if not any(
+        name == "final_ko_energy_search" and bool(value)
+        for name, value in intent.metadata
+    ):
+        return False
+    if not intent.card_groups:
+        return False
+    current_index = len(intent.card_groups) - len(intent.remaining_contexts)
+    if current_index < 0 or current_index >= len(intent.card_groups):
+        return False
+    option_ids = {
+        int(option.card_id)
+        for option in view.options
+        if option.card_id is not None
+    }
+    group = intent.card_groups[current_index]
+    if option_ids and not option_ids.intersection(group):
+        for later_group in intent.card_groups[current_index + 1 :]:
+            if option_ids.intersection(later_group):
+                group = later_group
+                break
+    return bool(set(int(card_id) for card_id in group) & _ATTACK_PSYCHIC_IDS)
+
+
 def _limit(view, intent: PendingIntent) -> int:
     view_maximum = max(0, int(view.select.get("maxCount", 0)))
-    if intent.max_cards is None:
-        return view_maximum
-    return min(view_maximum, max(0, int(intent.max_cards)))
+    intent_maximum = (
+        view_maximum
+        if intent.max_cards is None
+        else min(view_maximum, max(0, int(intent.max_cards)))
+    )
+    if int(intent.effect_card_id or -1) not in _DECK_SEARCH_EFFECT_IDS:
+        return intent_maximum
+    final_ko_energy_search = any(
+        name == "final_ko_energy_search" and bool(value)
+        for name, value in intent.metadata
+    )
+    if final_ko_energy_search:
+        return (
+            intent_maximum
+            if _is_final_ko_energy_screen(view, intent)
+            else 0
+        )
+    cards_to_hand = (
+        int(view.select.get("context", -1))
+        == int(SelectContext.TO_HAND)
+    )
+    return max_safe_deck_removals(
+        view,
+        requested=intent_maximum,
+        cards_to_hand=cards_to_hand,
+    )
 
 
 def _rule_ids(effect_card_id: int) -> tuple[str, ...]:
@@ -158,8 +220,10 @@ def _intent_proposal(
     intent: PendingIntent,
     chosen: tuple[int, ...],
     effect_card_id: int,
+    *,
+    advance_steps: int = 1,
 ) -> Proposal:
-    next_intent = intent.advance(view)
+    next_intent = intent.advance(view, advance_steps)
     reason = f"記録済み意図 {intent.kind} と一致するカードだけを選ぶ"
     if next_intent is not None:
         return Proposal(
@@ -168,6 +232,7 @@ def _intent_proposal(
             reason,
             _rule_ids(effect_card_id),
             next_intent=next_intent,
+            intent_advance_steps=advance_steps,
         )
     return Proposal(
         chosen,
@@ -175,6 +240,7 @@ def _intent_proposal(
         reason,
         _rule_ids(effect_card_id),
         intent_update=IntentUpdate.CLEAR,
+        intent_advance_steps=advance_steps,
     )
 
 
@@ -237,6 +303,21 @@ def _resolve_card_selection(
     groups = _current_groups(intent, effect_card_id)
     if groups is None:
         return None
+    advance_steps = 1
+    if effect_card_id in _MULTI_SCREEN_GROUP_EFFECTS and groups:
+        current_index = len(intent.card_groups) - len(intent.remaining_contexts)
+        option_ids = {
+            int(option.card_id)
+            for option in options
+            if option.card_id is not None
+        }
+        if not option_ids.intersection(groups[0]):
+            for later_index in range(current_index + 1, len(intent.card_groups)):
+                later_group = intent.card_groups[later_index]
+                if option_ids.intersection(later_group):
+                    groups = (later_group,)
+                    advance_steps = later_index - current_index + 1
+                    break
     if effect_card_id == int(CardId.POKE_PAD):
         groups = _poke_pad_groups(view, intent, groups)
     chosen = (
@@ -246,7 +327,13 @@ def _resolve_card_selection(
     )
     if len(chosen) < int(view.select.get("minCount", 0)):
         return None
-    return _intent_proposal(view, intent, chosen, effect_card_id)
+    return _intent_proposal(
+        view,
+        intent,
+        chosen,
+        effect_card_id,
+        advance_steps=advance_steps,
+    )
 
 
 def _resolve_rare_candy(view, intent: PendingIntent) -> Proposal | None:
@@ -413,8 +500,30 @@ def _resolve_effectless_promotion(view) -> Proposal | None:
         and int(option.source.id) == int(CardId.ALAKAZAM)
         and view.has_psychic_energy(option.source)
     )
+    reason = "超エネルギー付きフーディンをバトル場へ出す"
+    rule_ids = ("PLAYBOOK-PROMOTE-COMPLETE",)
     if not candidates:
-        return None
+        pivot = opening_abra_survival_pivot(view)
+        if (
+            int(view.select.get("context", -1)) != int(SelectContext.SWITCH)
+            or pivot is None
+            or pivot.serial is None
+        ):
+            return None
+        candidates = tuple(
+            option
+            for option in view.options
+            if option.type == int(OptionType.CARD)
+            and option.source is not None
+            and option.source.serial == pivot.serial
+        )
+        if not candidates:
+            return None
+        reason = "唯一のケーシィを守るため退避役をバトル場へ出す"
+        rule_ids = (
+            "PLAYBOOK-PRESERVE-ABRA",
+            "PLAYBOOK-AIR-BALLOON",
+        )
     option = min(
         candidates,
         key=lambda candidate: (
@@ -427,8 +536,8 @@ def _resolve_effectless_promotion(view) -> Proposal | None:
     return Proposal(
         (option.position,),
         _INTENT_PRIORITY,
-        "超エネルギー付きフーディンをバトル場へ出す",
-        ("PLAYBOOK-PROMOTE-COMPLETE",),
+        reason,
+        rule_ids,
     )
 
 
@@ -443,6 +552,8 @@ def _resolve_effectless_promotion(view) -> Proposal | None:
     "PLAYBOOK-LANAS-AID",
     "PLAYBOOK-NO-ENRICHING-RETREAT",
     "PLAYBOOK-PROMOTE-COMPLETE",
+    "PLAYBOOK-PRESERVE-ABRA",
+    "PLAYBOOK-AIR-BALLOON",
 )
 def resolve_prompt(view, memory) -> Proposal | None:
     """Resolve only a complete, matching card-effect intent or a retreat cost."""

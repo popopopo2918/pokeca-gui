@@ -4,6 +4,11 @@ from cards import CardId
 from model import OptionType, SelectContext, SelectType
 from proposals import Proposal, covers
 from rules.attack import can_hand_power_ko
+from rules.board_plan import can_spend_bench_slots
+from rules.continuity import (
+    CONTINUITY_PROTECTION_PRIORITY,
+    nonfinal_immediate_ko,
+)
 
 
 def _is_main_selection(view) -> bool:
@@ -130,6 +135,7 @@ def _genesect_proposal(view, memory) -> Proposal | None:
         play is None
         or int(CardId.AIR_BALLOON) not in view.hand_ids
         or len(view.field) + 1 < 2
+        or not can_spend_bench_slots(view, preserve_draw_line=True)
         or not _spend_preserves_immediate_ko(view, 2)
     ):
         return None
@@ -162,16 +168,30 @@ def propose_protection(view, memory) -> Proposal | None:
         proposals.append(genesect)
 
     if _spend_preserves_immediate_ko(view, 1):
+        continuity_protection = nonfinal_immediate_ko(view)
+        defensive_priority = (
+            CONTINUITY_PROTECTION_PRIORITY if continuity_protection else 930
+        )
+        continuity_rule_ids = (
+            ("PLAYBOOK-BOARD-MINIMUM", "PLAYBOOK-STOP-WHEN-KO")
+            if continuity_protection
+            else ()
+        )
         if (
             view.opponent_has_public_bench_damage_attack
             and _has_ruleless_bench_target(view)
+            and can_spend_bench_slots(view, preserve_draw_line=True)
         ):
             shaymin = _play_proposal(
                 view,
                 CardId.SHAYMIN,
-                930,
+                defensive_priority,
                 "公開ワザの通常ダメージからルールなしベンチを守る",
-                ("FLOW-PROTECT-SHAYMIN", "PLAYBOOK-SHAYMIN-DAMAGE"),
+                (
+                    "FLOW-PROTECT-SHAYMIN",
+                    "PLAYBOOK-SHAYMIN-DAMAGE",
+                    *continuity_rule_ids,
+                ),
             )
             if shaymin is not None:
                 proposals.append(shaymin)
@@ -184,9 +204,9 @@ def propose_protection(view, memory) -> Proposal | None:
             battle_cage = _play_proposal(
                 view,
                 CardId.BATTLE_CAGE,
-                930,
+                defensive_priority,
                 "公開ワザ・特性のベンチへのダメカンをバトルコロシアムで防ぐ",
-                ("PLAYBOOK-BATTLE-CAGE",),
+                ("PLAYBOOK-BATTLE-CAGE", *continuity_rule_ids),
             )
             if battle_cage is not None:
                 proposals.append(battle_cage)
@@ -194,6 +214,7 @@ def propose_protection(view, memory) -> Proposal | None:
         if (
             view.opponent_has_public_self_ko_ability
             and not _own_public_self_ko_ability_exists(view)
+            and can_spend_bench_slots(view, preserve_draw_line=True)
         ):
             psyduck = _play_proposal(
                 view,

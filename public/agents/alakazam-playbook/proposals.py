@@ -66,11 +66,19 @@ class PendingIntent:
         context = int(view.select.get("context", 0))
         if not self.has_complete_origin or context == 0:
             return False
-        if context != int(self.remaining_contexts[0]):
-            return False
         if int(view.current.get("turn", -1)) != int(self.created_turn):
             return False
-        if int(view.current.get("turnActionCount", -1)) != int(self.created_action_count) + 1:
+        action_delta = (
+            int(view.current.get("turnActionCount", -1))
+            - int(self.created_action_count)
+        )
+        # Hilda/Dawnのような複数画面効果では、該当カテゴリが山札にないと
+        # CABTがその画面を内部で飛ばし、actionCountだけを進める。
+        # 効果ID・カードserial・手番が一致する間だけ、残り画面数までの
+        # 飛び越しを許可する。単一画面の意図は従来どおり厳密に+1のみ。
+        if action_delta < 1 or action_delta > len(self.remaining_contexts):
+            return False
+        if context != int(self.remaining_contexts[action_delta - 1]):
             return False
 
         effect = view.select.get("effect")
@@ -88,12 +96,14 @@ class PendingIntent:
             return False
         return True
 
-    def advance(self, view) -> "PendingIntent | None":
-        if not self.matches(view) or len(self.remaining_contexts) <= 1:
+    def advance(self, view, steps: int = 1) -> "PendingIntent | None":
+        if steps < 1:
+            raise ValueError("意図の進行数は1以上である必要があります。")
+        if not self.matches(view) or len(self.remaining_contexts) <= steps:
             return None
         return replace(
             self,
-            remaining_contexts=self.remaining_contexts[1:],
+            remaining_contexts=self.remaining_contexts[steps:],
             created_action_count=int(view.current.get("turnActionCount", -1)),
         )
 
@@ -113,8 +123,11 @@ class Proposal:
     next_intent: PendingIntent | None = None
     alternative: str = ""
     intent_update: IntentUpdate | None = None
+    intent_advance_steps: int = 1
 
     def __post_init__(self) -> None:
+        if int(self.intent_advance_steps) < 1:
+            raise ValueError("意図の進行数は1以上である必要があります。")
         update = self.intent_update
         if update is None:
             update = (
