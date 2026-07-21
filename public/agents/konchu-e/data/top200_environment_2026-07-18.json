@@ -1,0 +1,990 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-07-18",
+  "requested_rank_count": 200,
+  "available_team_count": 200,
+  "available_recent_game_count": 402,
+  "missing_teams": [],
+  "missing_games": 598,
+  "rank_bands": [
+    "1-100",
+    "101-200"
+  ],
+  "evidence_scopes": {
+    "current_top200_metadata": {
+      "leaderboard_teams": 200,
+      "teams_with_safe_active_submissions": 200,
+      "safe_active_submissions_per_team": 2,
+      "safe_active_submissions": 400
+    },
+    "current_partial_replay_scan": {
+      "maximum_replays_per_team": 5,
+      "requested_replay_slots": 1000,
+      "replays_scanned": 402,
+      "unscanned_replay_slots": 598,
+      "teams_with_at_least_one_replay": 126,
+      "teams_with_five_replays": 52,
+      "rank_1_71_requested_slots": 355,
+      "rank_1_71_replays_scanned": 298,
+      "rank_72_200_team_name_quote_matching_issue": true,
+      "rank_101_200_archetypes_classified": false,
+      "rank_101_200_latest_decks_classified": false
+    },
+    "verified_legacy_top100_snapshot": {
+      "observed_from_jst": "2026-07-18T09:14:00+09:00",
+      "observed_to_jst": "2026-07-18T09:29:00+09:00",
+      "leaderboard_teams": 100,
+      "latest_decks_parsed": 100,
+      "latest_decks_expected": 100,
+      "team_game_slots_parsed": 500,
+      "team_game_slots_expected": 500,
+      "unique_episodes": 393,
+      "profile_statistics_source": true
+    }
+  },
+  "verified_legacy_top100_special_energy": {
+    "decks_checked": 100,
+    "mist_energy": {
+      "card_id": 11,
+      "adopting_decks": 15,
+      "copies": 60,
+      "all_adoptions_are_four_copies": true,
+      "by_profile": {
+        "crustle": {
+          "adopting_decks": 12,
+          "decks_in_denominator": 12,
+          "copies": 48
+        },
+        "mega_kangaskhan": {
+          "adopting_decks": 2,
+          "decks_in_denominator": 3,
+          "copies": 8
+        },
+        "cornerstone_ogerpon": {
+          "adopting_decks": 1,
+          "decks_in_denominator": 1,
+          "copies": 4
+        }
+      }
+    },
+    "rock_fighting_energy": {
+      "card_id": 20,
+      "adopting_decks": 9,
+      "copies": 35,
+      "by_profile": {
+        "cynthia_garchomp": {
+          "adopting_decks": 5,
+          "decks_in_denominator": 5,
+          "copies": 20
+        },
+        "mega_lucario": {
+          "adopting_decks": 3,
+          "decks_in_denominator": 3,
+          "copies": 11
+        },
+        "cornerstone_ogerpon": {
+          "adopting_decks": 1,
+          "decks_in_denominator": 1,
+          "copies": 4
+        }
+      }
+    }
+  },
+  "limitations": [
+    {
+      "code": "current_replay_scan_partial",
+      "detail": "The current replay scan covers 402 of 1000 requested team slots; the remaining 598 slots are missing observations, not zero-valued results."
+    },
+    {
+      "code": "rank_72_200_quote_matching",
+      "detail": "Current ranks 72-200 have a quoted team-name matching issue, so replay attribution after rank 71 is incomplete."
+    },
+    {
+      "code": "rank_101_200_unclassified",
+      "detail": "Current ranks 101-200 have no classified archetype or latest-deck profile; null rank-band values are missing, not non-adoption or zero games."
+    },
+    {
+      "code": "profile_statistics_legacy_top100_only",
+      "detail": "Profile teams, games, attacks, and special-energy counts come only from the fully verified older top-100 snapshot collected from 09:14 through 09:29 JST."
+    },
+    {
+      "code": "profile_team_count_scopes",
+      "detail": "teams is the exclusive latest-deck distribution across the verified top 100; recent_game_team_count is the non-exclusive distinct-team count from the recent 500 slots, and games_observed partitions those 500 slots."
+    },
+    {
+      "code": "nullable_behavior_tags",
+      "detail": "Hand-disruption and bench-pressure adoption preserve verified legacy top-100 numerators and denominators; mixed adoption and unknown denominators remain tri-state at runtime."
+    }
+  ],
+  "source_artifacts": [
+    "artifacts/kaggle-environment-2026-07-18/archetype-details.csv",
+    "artifacts/kaggle-environment-2026-07-18/report.md",
+    "artifacts/kaggle-environment-2026-07-18/top100-latest-decks.csv",
+    "artifacts/kaggle-environment-2026-07-18/top100-recent-500.csv"
+  ],
+  "profiles": [
+    {
+      "key": "alakazam",
+      "label": "Alakazam",
+      "teams": 41,
+      "rank_band_team_counts": {
+        "1-100": 41,
+        "101-200": null
+      },
+      "recent_game_team_count": 49,
+      "games_observed": 213,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [741, 742, 743]
+      ],
+      "primary_lines": [
+        [741, 742, 743]
+      ],
+      "identifying_attacker_ids": [741, 742, 743],
+      "observed_attacker_ids": [140, 305, 741, 742, 743],
+      "observed_attack_counts": {
+        "140": 5,
+        "305": 8,
+        "741": 64,
+        "742": 45,
+        "743": 928
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 41,
+        "decks_in_denominator": 41,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 41,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 41,
+        "decks_in_denominator": 41,
+        "observed_matches": 2,
+        "observed_bench_attack_uses": 5,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "grimmsnarl",
+      "label": "Grimmsnarl",
+      "teams": 17,
+      "rank_band_team_counts": {
+        "1-100": 17,
+        "101-200": null
+      },
+      "recent_game_team_count": 20,
+      "games_observed": 77,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [646, 647, 648]
+      ],
+      "primary_lines": [
+        [646, 647, 648]
+      ],
+      "identifying_attacker_ids": [235, 646, 647, 648, 649],
+      "observed_attacker_ids": [235, 646, 647, 648, 649],
+      "observed_attack_counts": {
+        "235": 1,
+        "646": 11,
+        "647": 6,
+        "648": 257,
+        "649": 2
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 5,
+        "decks_in_denominator": 17,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 15,
+        "decks_in_denominator": 17,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 17,
+        "decks_in_denominator": 17,
+        "observed_matches": 76,
+        "observed_bench_attack_uses": 257,
+        "observed_counter_pressure_plays": 160,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "crustle",
+      "label": "Crustle",
+      "teams": 12,
+      "rank_band_team_counts": {
+        "1-100": 12,
+        "101-200": null
+      },
+      "recent_game_team_count": 14,
+      "games_observed": 59,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [],
+      "primary_lines": [
+        [344, 345],
+        [756]
+      ],
+      "identifying_attacker_ids": [344, 345, 756],
+      "observed_attacker_ids": [344, 345, 756],
+      "observed_attack_counts": {
+        "344": 16,
+        "345": 182,
+        "756": 113
+      },
+      "mist_energy_counts": [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 12,
+        "decks_in_denominator": 12,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 12,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 12,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard?dialog=episodes-episode-86588656"
+      ]
+    },
+    {
+      "key": "dragapult",
+      "label": "Dragapult",
+      "teams": 6,
+      "rank_band_team_counts": {
+        "1-100": 6,
+        "101-200": null
+      },
+      "recent_game_team_count": 7,
+      "games_observed": 29,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [119, 120]
+      ],
+      "primary_lines": [
+        [119, 120, 121]
+      ],
+      "identifying_attacker_ids": [120, 121, 235],
+      "observed_attacker_ids": [112, 120, 121, 235, 306, 791],
+      "observed_attack_counts": {
+        "112": 2,
+        "120": 6,
+        "121": 85,
+        "235": 28,
+        "306": 2,
+        "791": 2
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 2,
+        "decks_in_denominator": 6,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 4,
+        "decks_in_denominator": 6,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 6,
+        "decks_in_denominator": 6,
+        "observed_matches": 27,
+        "observed_bench_attack_uses": 74,
+        "observed_counter_pressure_plays": 25,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "mega_starmie",
+      "label": "Mega Starmie",
+      "teams": 5,
+      "rank_band_team_counts": {
+        "1-100": 5,
+        "101-200": null
+      },
+      "recent_game_team_count": 5,
+      "games_observed": 20,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [1030, 1031]
+      ],
+      "primary_lines": [
+        [1030, 1031]
+      ],
+      "identifying_attacker_ids": [666, 1030, 1031],
+      "observed_attacker_ids": [174, 414, 666, 860, 861, 1030, 1031],
+      "observed_attack_counts": {
+        "174": 2,
+        "414": 11,
+        "666": 5,
+        "860": 1,
+        "861": 10,
+        "1030": 4,
+        "1031": 63
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 2,
+        "decks_in_denominator": 5,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 5,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 5,
+        "decks_in_denominator": 5,
+        "observed_matches": 13,
+        "observed_bench_attack_uses": 49,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "cynthia_garchomp",
+      "label": "Cynthia's Garchomp",
+      "teams": 5,
+      "rank_band_team_counts": {
+        "1-100": 5,
+        "101-200": null
+      },
+      "recent_game_team_count": 5,
+      "games_observed": 25,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [341],
+        [342],
+        [379],
+        [380],
+        [381]
+      ],
+      "primary_lines": [
+        [379, 380, 381]
+      ],
+      "identifying_attacker_ids": [341, 379, 380, 381, 387],
+      "observed_attacker_ids": [341, 379, 380, 381, 387],
+      "observed_attack_counts": {
+        "341": 7,
+        "379": 4,
+        "380": 14,
+        "381": 83,
+        "387": 15
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [4, 4, 4, 4, 4],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 3,
+        "decks_in_denominator": 5,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 4,
+        "decks_in_denominator": 5,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 5,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard?dialog=episodes-episode-86589082"
+      ]
+    },
+    {
+      "key": "mega_lucario",
+      "label": "Mega Lucario",
+      "teams": 3,
+      "rank_band_team_counts": {
+        "1-100": 3,
+        "101-200": null
+      },
+      "recent_game_team_count": 3,
+      "games_observed": 15,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [675],
+        [676],
+        [677],
+        [678]
+      ],
+      "primary_lines": [
+        [677, 678]
+      ],
+      "identifying_attacker_ids": [676, 677, 678],
+      "observed_attacker_ids": [676, 677, 678],
+      "observed_attack_counts": {
+        "676": 11,
+        "677": 3,
+        "678": 72
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [3, 4, 4],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 3,
+        "decks_in_denominator": 3,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 3,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 3,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard?dialog=episodes-episode-86588148"
+      ]
+    },
+    {
+      "key": "mega_kangaskhan",
+      "label": "Mega Kangaskhan",
+      "teams": 3,
+      "rank_band_team_counts": {
+        "1-100": 3,
+        "101-200": null
+      },
+      "recent_game_team_count": 3,
+      "games_observed": 14,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [],
+      "primary_lines": [
+        [756]
+      ],
+      "identifying_attacker_ids": [344, 345, 756],
+      "observed_attacker_ids": [96, 108, 344, 345, 756],
+      "observed_attack_counts": {
+        "96": 2,
+        "108": 1,
+        "344": 2,
+        "345": 2,
+        "756": 25
+      },
+      "mist_energy_counts": [4, 4],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 3,
+        "decks_in_denominator": 3,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 3,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 1,
+        "decks_in_denominator": 3,
+        "observed_matches": 1,
+        "observed_bench_attack_uses": 1,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard?dialog=episodes-episode-86589308"
+      ]
+    },
+    {
+      "key": "rocket_spidops",
+      "label": "Team Rocket's Spidops",
+      "teams": 2,
+      "rank_band_team_counts": {
+        "1-100": 2,
+        "101-200": null
+      },
+      "recent_game_team_count": 3,
+      "games_observed": 13,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [400, 401]
+      ],
+      "primary_lines": [
+        [400, 401]
+      ],
+      "identifying_attacker_ids": [400, 401, 431],
+      "observed_attacker_ids": [400, 401, 431],
+      "observed_attack_counts": {
+        "400": 17,
+        "401": 34,
+        "431": 13
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 2,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 2,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 2,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "n_zoroark",
+      "label": "N's Zoroark",
+      "teams": 2,
+      "rank_band_team_counts": {
+        "1-100": 2,
+        "101-200": null
+      },
+      "recent_game_team_count": 2,
+      "games_observed": 10,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [292, 293]
+      ],
+      "primary_lines": [
+        [292, 293]
+      ],
+      "identifying_attacker_ids": [293],
+      "observed_attacker_ids": [293, 849],
+      "observed_attack_counts": {
+        "293": 47,
+        "849": 3
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 2,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 2,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 2,
+        "decks_in_denominator": 2,
+        "observed_matches": 1,
+        "observed_bench_attack_uses": 3,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "cubchoo",
+      "label": "Cubchoo",
+      "teams": 1,
+      "rank_band_team_counts": {
+        "1-100": 1,
+        "101-200": null
+      },
+      "recent_game_team_count": 2,
+      "games_observed": 7,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [506]
+      ],
+      "primary_lines": [
+        [506]
+      ],
+      "identifying_attacker_ids": [506],
+      "observed_attacker_ids": [506],
+      "observed_attack_counts": {
+        "506": 68
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 1,
+        "decks_in_denominator": 1,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 1,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 1,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "archaludon",
+      "label": "Archaludon",
+      "teams": 1,
+      "rank_band_team_counts": {
+        "1-100": 1,
+        "101-200": null
+      },
+      "recent_game_team_count": 1,
+      "games_observed": 5,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [169, 190]
+      ],
+      "primary_lines": [
+        [169, 190]
+      ],
+      "identifying_attacker_ids": [169, 190, 666],
+      "observed_attacker_ids": [169, 190, 666],
+      "observed_attack_counts": {
+        "169": 3,
+        "190": 14,
+        "666": 4
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 1,
+        "decks_in_denominator": 1,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 1,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 1,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "rocket_honchkrow",
+      "label": "Team Rocket's Honchkrow",
+      "teams": 1,
+      "rank_band_team_counts": {
+        "1-100": 1,
+        "101-200": null
+      },
+      "recent_game_team_count": 1,
+      "games_observed": 5,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [463, 891]
+      ],
+      "primary_lines": [
+        [463, 891]
+      ],
+      "identifying_attacker_ids": [463, 474, 475, 891],
+      "observed_attacker_ids": [463, 474, 475, 891],
+      "observed_attack_counts": {
+        "463": 2,
+        "474": 4,
+        "475": 2,
+        "891": 13
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 1,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 1,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 1,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "cornerstone_ogerpon",
+      "label": "Cornerstone Mask Ogerpon",
+      "teams": 1,
+      "rank_band_team_counts": {
+        "1-100": 1,
+        "101-200": null
+      },
+      "recent_game_team_count": 1,
+      "games_observed": 5,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [],
+      "primary_lines": [
+        [117]
+      ],
+      "identifying_attacker_ids": [344, 345],
+      "observed_attacker_ids": [117, 344, 345],
+      "observed_attack_counts": {
+        "117": 6,
+        "344": 4,
+        "345": 3
+      },
+      "mist_energy_counts": [4],
+      "rock_fighting_energy_counts": [4],
+      "immunity_energy_observation_complete": true,
+      "uses_xerosic": {
+        "adopting_decks": 1,
+        "decks_in_denominator": 1,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 1,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": 0,
+        "decks_in_denominator": 1,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard?dialog=episodes-episode-86588700"
+      ]
+    },
+    {
+      "key": "rocket_mewtwo",
+      "label": "Team Rocket's Mewtwo",
+      "teams": 0,
+      "rank_band_team_counts": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "recent_game_team_count": 1,
+      "games_observed": 2,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [],
+      "primary_lines": [
+        [431]
+      ],
+      "identifying_attacker_ids": [401, 431],
+      "observed_attacker_ids": [401, 431],
+      "observed_attack_counts": {
+        "401": 3,
+        "431": 8
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": false,
+      "uses_xerosic": {
+        "adopting_decks": null,
+        "decks_in_denominator": null,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": null,
+        "decks_in_denominator": null,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": null,
+        "decks_in_denominator": null,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    },
+    {
+      "key": "raging_bolt",
+      "label": "Raging Bolt",
+      "teams": 0,
+      "rank_band_team_counts": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "recent_game_team_count": 1,
+      "games_observed": 1,
+      "missing_games": {
+        "1-100": 0,
+        "101-200": null
+      },
+      "identifying_sets": [
+        [63]
+      ],
+      "primary_lines": [
+        [63]
+      ],
+      "identifying_attacker_ids": [63],
+      "observed_attacker_ids": [63],
+      "observed_attack_counts": {
+        "63": 1
+      },
+      "mist_energy_counts": [],
+      "rock_fighting_energy_counts": [],
+      "immunity_energy_observation_complete": false,
+      "uses_xerosic": {
+        "adopting_decks": null,
+        "decks_in_denominator": null,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "uses_unfair_stamp": {
+        "adopting_decks": null,
+        "decks_in_denominator": null,
+        "evidence_scope": "verified_legacy_top100_latest_decks"
+      },
+      "bench_damage": {
+        "adopting_decks": null,
+        "decks_in_denominator": null,
+        "observed_matches": 0,
+        "observed_bench_attack_uses": 0,
+        "observed_counter_pressure_plays": 0,
+        "evidence_scope": "verified_legacy_top100_latest_decks_and_recent_500"
+      },
+      "source_urls": [
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle",
+        "https://www.kaggle.com/competitions/pokemon-tcg-ai-battle/leaderboard"
+      ]
+    }
+  ]
+}

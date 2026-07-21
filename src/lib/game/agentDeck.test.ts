@@ -13,6 +13,12 @@ const agents = [
     deckUrl: '/agents/alakazam-playbook/deck.csv',
     fixedDeck: true,
   },
+  {
+    id: 'konchu-e',
+    name: '昆虫E',
+    deckUrl: '/agents/konchu-e/deck.csv',
+    fixedDeck: true,
+  },
 ];
 
 describe('fixedAgentDeckSource', () => {
@@ -20,6 +26,7 @@ describe('fixedAgentDeckSource', () => {
     expect(fixedAgentDeckSource('agent', 'alakazam-playbook', agents)).toBe(
       'alakazam-playbook',
     );
+    expect(fixedAgentDeckSource('agent', 'konchu-e', agents)).toBe('konchu-e');
     expect(fixedAgentDeckSource('agent', 'normal', agents)).toBeNull();
     expect(fixedAgentDeckSource('self', 'alakazam-playbook', agents)).toBeNull();
     expect(fixedAgentDeckSource('agent', 'missing', agents)).toBeNull();

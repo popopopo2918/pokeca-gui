@@ -74,3 +74,48 @@ describe('bundled alakazam-playbook agent', () => {
     ).toBe(false);
   });
 });
+
+describe('bundled Konchu E agent', () => {
+  it('coexists with sample_a and registers a fixed sixty-card deck', () => {
+    const konchuE = manifest.agents.find((agent) => agent.id === 'konchu-e');
+    const sampleA = manifest.agents.find(
+      (agent) => agent.id === 'alakazam-playbook',
+    );
+
+    expect(konchuE).toMatchObject({
+      id: 'konchu-e',
+      name: '昆虫E',
+      path: 'public/agents/konchu-e/main.py',
+      deckUrl: '/agents/konchu-e/deck.csv',
+      fixedDeck: true,
+    });
+    expect(sampleA).toBeDefined();
+  });
+
+  it('imports main.py and returns its sixty-card deck without bundled cg binaries', () => {
+    const mainPath = path.join(
+      root,
+      'public',
+      'agents',
+      'konchu-e',
+      'main.py',
+    );
+    const python = process.env.PYTHON || 'python';
+    const program = [
+      'import importlib.util, json, pathlib, sys',
+      'path = pathlib.Path(sys.argv[1]).resolve()',
+      'spec = importlib.util.spec_from_file_location("cabt_bundled_konchu_e", path)',
+      'module = importlib.util.module_from_spec(spec)',
+      'spec.loader.exec_module(module)',
+      'print(json.dumps({"deckSize": len(module.agent({"select": None}))}))',
+    ].join('; ');
+    const result = spawnSync(python, ['-B', '-c', program, mainPath], {
+      encoding: 'utf8',
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ deckSize: 60 });
+    expect(
+      fs.existsSync(path.join(root, 'public', 'agents', 'konchu-e', 'cg')),
+    ).toBe(false);
+  });
+});
