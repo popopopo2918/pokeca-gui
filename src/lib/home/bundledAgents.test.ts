@@ -118,4 +118,44 @@ describe('bundled Konchu E agent', () => {
       fs.existsSync(path.join(root, 'public', 'agents', 'konchu-e', 'cg')),
     ).toBe(false);
   });
+
+  it('keeps the fetched deck.csv aligned with the Python setup deck', () => {
+    const deckRows = fs
+      .readFileSync(
+        path.join(root, 'public', 'agents', 'konchu-e', 'deck.csv'),
+        'utf8',
+      )
+      .split(/\r?\n/u)
+      .map((row) => row.trim())
+      .filter(Boolean);
+    expect(deckRows).toHaveLength(60);
+    for (const row of deckRows) {
+      expect(row).toMatch(/^\d+$/u);
+    }
+    const fetchedDeck = deckRows.map(Number);
+
+    const mainPath = path.join(
+      root,
+      'public',
+      'agents',
+      'konchu-e',
+      'main.py',
+    );
+    const python = process.env.PYTHON || 'python';
+    const program = [
+      'import importlib.util, json, pathlib, sys',
+      'path = pathlib.Path(sys.argv[1]).resolve()',
+      'spec = importlib.util.spec_from_file_location("cabt_bundled_konchu_e_deck", path)',
+      'module = importlib.util.module_from_spec(spec)',
+      'spec.loader.exec_module(module)',
+      'print(json.dumps({"deck": module.agent({"select": None})}))',
+    ].join('; ');
+    const result = spawnSync(python, ['-B', '-c', program, mainPath], {
+      encoding: 'utf8',
+    });
+    expect(result.status, result.stderr).toBe(0);
+    const pythonDeck = JSON.parse(result.stdout) as { deck: number[] };
+    expect(pythonDeck.deck).toHaveLength(60);
+    expect(pythonDeck.deck).toEqual(fetchedDeck);
+  });
 });
