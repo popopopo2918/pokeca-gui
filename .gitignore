@@ -7,4 +7,6 @@ node_modules
 .DS_Store
 sample_submission
 data
+!public/agents/konchu-e/data/
+!public/agents/konchu-e/data/top200_environment_2026-07-18.json
 training-results

@@ -76,6 +76,16 @@ describe('bundled alakazam-playbook agent', () => {
 });
 
 describe('bundled Konchu E agent', () => {
+  it('keeps its runtime environment profile eligible for deployment', () => {
+    const profilePath = 'public/agents/konchu-e/data/top200_environment_2026-07-18.json';
+    const result = spawnSync('git', ['check-ignore', '--no-index', '--quiet', profilePath], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(1);
+  });
+
   it('coexists with sample_a and registers a fixed sixty-card deck', () => {
     const konchuE = manifest.agents.find((agent) => agent.id === 'konchu-e');
     const sampleA = manifest.agents.find(
