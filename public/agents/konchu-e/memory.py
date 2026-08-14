@@ -330,8 +330,7 @@ class AgentMemory:
             try:
                 log_type = int(log.get("type", -1))
             except (TypeError, ValueError):
-                # GUI may add display-only log kinds (for example "ability").
-                # They are not CABT public-action logs and must not break policy memory.
+                # GUIの表示専用ログはCABTの公開行動ではないため無視する。
                 continue
             if (
                 log_type not in _PUBLIC_OPPONENT_LOG_TYPES

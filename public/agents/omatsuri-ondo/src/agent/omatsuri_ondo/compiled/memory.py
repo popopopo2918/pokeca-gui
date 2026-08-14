@@ -43,6 +43,7 @@ class CompiledMemory:
     damage_support: int = 0
     played_card_ids_this_turn: tuple[int, ...] = ()
     bench_ko_dominance_committed: bool = False
+    attacker_generations_used: int = 0
     previous_opponent_knockout_turn: int | None = None
     replay_cache: dict[tuple[object, ...], tuple[int, ...]] = field(
         default_factory=dict
@@ -80,11 +81,18 @@ class CompiledMemory:
             value for value in self.unused_thwackey_serials if value != serial
         )
 
-    def record_attack_selected(self, source_serial: int) -> None:
+    def record_attack_selected(
+        self,
+        source_serial: int,
+        *,
+        attack_id: int = int(AttackId.DIPPLIN_DO_THE_WAVE),
+    ) -> None:
         if self._observed_own_turn is None:
             return
         if self.first_attack_source_serial is None:
             self.first_attack_source_serial = int(source_serial)
+            if int(attack_id) == int(AttackId.DIPPLIN_DO_THE_WAVE):
+                self.attacker_generations_used += 1
 
     def record_card_played(self, card_id: int) -> None:
         value = int(card_id)
@@ -140,6 +148,7 @@ class CompiledMemory:
             int(self.damage_support),
             tuple(int(value) for value in self.played_card_ids_this_turn),
             bool(self.bench_ko_dominance_committed),
+            int(self.attacker_generations_used),
             self.previous_opponent_knockout_turn,
             int(self.unknown_state_count),
             int(self.fallback_count),

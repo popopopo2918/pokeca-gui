@@ -12,7 +12,14 @@ from common_strategy import (
 
 from .boss_patterns import lookup_boss_pattern
 from .features import RoleAssignment
-from .schema import ActionKind, ActionSpec, PokemonRole, TargetRule
+from .schema import (
+    ActionKind,
+    ActionSpec,
+    KO_CHAIN_SELECT_ONE_REASON_CODE,
+    KO_CHAIN_SELECT_TWO_REASON_CODE,
+    PokemonRole,
+    TargetRule,
+)
 from ..cards import CardId
 
 
@@ -170,6 +177,15 @@ def _select_cards(
             continue
         candidates_by_id.setdefault(int(option.card_id), []).append(option)
 
+    chain_selection_limit = {
+        int(KO_CHAIN_SELECT_ONE_REASON_CODE): 1,
+        int(KO_CHAIN_SELECT_TWO_REASON_CODE): 2,
+    }.get(int(action.reason_code))
+    maximum_selection = _maximum_selection(view)
+    if chain_selection_limit is not None:
+        maximum_selection = min(maximum_selection, chain_selection_limit)
+    preserve_reserve = chain_selection_limit is None
+
     selected: list[int] = []
     selected_card_ids: list[int] = []
     selected_positions: set[int] = set()
@@ -178,7 +194,7 @@ def _select_cards(
         if not matches:
             continue
         option = matches.pop(0)
-        if not preserves_core_bench_reserve(
+        if preserve_reserve and not preserves_core_bench_reserve(
             view,
             selected_card_ids=selected_card_ids,
             candidate_card_id=int(card_id),
@@ -188,18 +204,19 @@ def _select_cards(
         selected.append(position)
         selected_card_ids.append(int(card_id))
         selected_positions.add(position)
-        if len(selected) >= _maximum_selection(view):
+        if len(selected) >= maximum_selection:
             break
     if not selected and action.kind is not ActionKind.SELECT_CARDS_FILL:
         return None
     if action.kind is ActionKind.SELECT_CARDS_FILL:
         for option in sorted(view.options, key=_semantic_option_key):
-            if len(selected) >= _maximum_selection(view):
+            if len(selected) >= maximum_selection:
                 break
             if int(option.position) in selected_positions:
                 continue
             if (
-                option.card_id is not None
+                preserve_reserve
+                and option.card_id is not None
                 and not preserves_core_bench_reserve(
                     view,
                     selected_card_ids=selected_card_ids,
@@ -334,24 +351,56 @@ def preserves_core_bench_reserve(
     selected_card_ids: list[int],
     candidate_card_id: int,
 ) -> bool:
-    """Keep enough optional bench slots for the fixed two-by-two core board."""
+    """Keep slots for the core and a structurally reachable third attacker.
+
+    The two-by-two board remains the unconditional minimum.  During an
+    in-game Bench search, if the current open slots can still hold three
+    Dipplin-family lines plus two Thwackey-family lines, optional duplicates
+    may not consume that third-attacker slot.  Card availability is resolved
+    by the later fixed search/recovery rows; this selector only preserves the
+    physical slot they need.
+    """
 
     if int(view.select.get("context", -1)) not in (
         int(SelectContext.TO_BENCH),
         int(SelectContext.SETUP_BENCH_POKEMON),
     ):
         return True
-    dipplin_lines_before = sum(
+    field_dipplin_lines = sum(
         pokemon.id in (int(CardId.APPLIN), int(CardId.DIPPLIN))
         for pokemon in view.own_field
-    ) + sum(
+    )
+    field_thwackey_lines = sum(
+        pokemon.id in (int(CardId.GROOKEY), int(CardId.THWACKEY))
+        for pokemon in view.own_field
+    )
+    initial_bench_slots = max(
+        0,
+        int(view.own.get("benchMax", 5)) - len(view.own_bench),
+    )
+    visible_applin_supply = (
+        sum(card_id == int(CardId.APPLIN) for card_id in view.own_hand_ids)
+        + sum(card_id == int(CardId.APPLIN) for card_id in view.looking_ids)
+        + sum(
+            isinstance(card, dict)
+            and int(card.get("id", 0)) == int(CardId.APPLIN)
+            for card in (view.own.get("discard") or ())
+        )
+    )
+    third_attacker_layout_reachable = bool(
+        int(view.select.get("context", -1)) == int(SelectContext.TO_BENCH)
+        and field_dipplin_lines + visible_applin_supply >= 3
+        and initial_bench_slots
+        >= max(0, 3 - field_dipplin_lines)
+        + max(0, 2 - field_thwackey_lines)
+    )
+    dipplin_target = 3 if third_attacker_layout_reachable else 2
+
+    dipplin_lines_before = field_dipplin_lines + sum(
         card_id in (int(CardId.APPLIN), int(CardId.DIPPLIN))
         for card_id in selected_card_ids
     )
-    thwackey_lines_before = sum(
-        pokemon.id in (int(CardId.GROOKEY), int(CardId.THWACKEY))
-        for pokemon in view.own_field
-    ) + sum(
+    thwackey_lines_before = field_thwackey_lines + sum(
         card_id in (int(CardId.GROOKEY), int(CardId.THWACKEY))
         for card_id in selected_card_ids
     )
@@ -374,7 +423,7 @@ def preserves_core_bench_reserve(
         candidate in (int(CardId.GROOKEY), int(CardId.THWACKEY))
     )
     missing_core_lines = (
-        max(0, 2 - dipplin_lines)
+        max(0, dipplin_target - dipplin_lines)
         + max(0, 2 - thwackey_lines)
     )
     remaining_bench_slots = max(

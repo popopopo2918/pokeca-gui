@@ -16,7 +16,23 @@ from common_strategy import (
 from ..cards import AttackId, CardId, DECK_COUNTS
 from ..damage_patterns import DamagePatternKey, DamageSupport, lookup_damage
 from .boss_patterns import BossDecisionClass, lookup_boss_pattern
+from .ko_chain import (
+    MAX_ATTACKER_GENERATIONS,
+    KoChainClass,
+    KoChainPlan,
+    KoChainState,
+    KoTarget,
+    lookup_ko_chain,
+)
+from .ko_routes import (
+    KoReachability,
+    KoRoutePlan,
+    KoRouteState,
+    KoRouteStep,
+    lookup_active_ko_route,
+)
 from .memory import CompiledMemory
+from .search_economy import SearchEconomyState, lookup_search_economy
 from .schema import CardZone, PolicyFeatures, PokemonRole, ScalarFeature
 
 
@@ -285,6 +301,10 @@ def extract_policy_features(
     minimum_board_complete = (
         dipplin_family_lines >= 2 and thwackey_family_lines >= 2
     )
+    bench_free = max(
+        0,
+        int(view.own.get("benchMax", 5)) - len(view.own_bench),
+    )
     attacker = _pokemon_for_role(view, roles, PokemonRole.ATTACKER)
     next_attacker = _pokemon_for_role(view, roles, PokemonRole.NEXT_ATTACKER)
     second_next_attacker = _pokemon_for_role(
@@ -325,6 +345,220 @@ def extract_policy_features(
         and int(option.source.serial) in memory.unused_thwackey_serials
         for option in options
     )
+    can_dipplin_attack = _has_attack(options, AttackId.DIPPLIN_DO_THE_WAVE)
+    basic_ids = (
+        CardId.APPLIN,
+        CardId.GROOKEY,
+    )
+    direct_basic_count = min(
+        bench_free,
+        sum(
+            int(hand[int(card_id)])
+            for card_id in basic_ids
+            if legal_play[int(card_id)]
+        ),
+    )
+    poffin_basic_count = min(
+        bench_free,
+        sum(
+            card_counts[(CardZone.DECK_MIN, int(card_id))]
+            for card_id in basic_ids
+        ),
+    )
+    brock_basic_count = min(
+        bench_free,
+        sum(
+            card_counts[(CardZone.DECK_MIN, int(card_id))]
+            for card_id in basic_ids
+        ),
+    )
+    direct_attacker_count = (
+        int(hand[int(CardId.APPLIN)])
+        if legal_play[int(CardId.APPLIN)]
+        else 0
+    )
+    direct_searcher_count = (
+        int(hand[int(CardId.GROOKEY)])
+        if legal_play[int(CardId.GROOKEY)]
+        else 0
+    )
+    poffin_attacker_count = int(
+        card_counts[(CardZone.DECK_MIN, int(CardId.APPLIN))]
+    )
+    poffin_searcher_count = int(
+        card_counts[(CardZone.DECK_MIN, int(CardId.GROOKEY))]
+    )
+    third_attacker_reachable = bool(
+        dipplin_family_lines >= 3
+        or hand[int(CardId.APPLIN)] > 0
+        or card_counts[(CardZone.DECK_MAX, int(CardId.APPLIN))] > 0
+        or discard[int(CardId.APPLIN)] > 0
+    )
+    active_ko_plan = KoRoutePlan(
+        reachability=KoReachability.UNREACHABLE,
+        next_step=KoRouteStep.NONE,
+        goal_bench_count=0,
+        damage=0,
+        first_hit_ko=False,
+        hits_remaining_after_ko=0,
+    )
+    active_route_state: KoRouteState | None = None
+    opponent_hp = 0 if opponent is None else max(0, int(opponent.hp))
+    normalized_opponent_hp = ((opponent_hp + 9) // 10) * 10
+    if (
+        can_dipplin_attack
+        and opponent is not None
+        and 10 <= normalized_opponent_hp <= 400
+    ):
+        opponent_meta = view.catalog.card(opponent.id)
+        active_route_state = KoRouteState(
+            bench_count=min(5, len(view.own_bench)),
+            bench_free=bench_free,
+            target_hp=normalized_opponent_hp,
+            target_ex=bool(
+                opponent_meta is not None
+                and (opponent_meta.ex or opponent_meta.mega_ex)
+            ),
+            grass_weakness=bool(
+                opponent_meta is not None
+                and opponent_meta.weakness == int(EnergyType.GRASS)
+            ),
+            hit_count=max(1, int(damage["hit_count"])),
+            brave_bangle=bool(
+                active is not None
+                and int(CardId.BRAVE_BANGLE) in active.tool_ids
+            ),
+            support={
+                1: DamageSupport.KIERAN,
+                2: DamageSupport.BLACK_BELT,
+            }.get(int(memory.damage_support), DamageSupport.NONE),
+            supporter_available=memory.supporter_available,
+            direct_basic_count=direct_basic_count,
+            poffin_in_hand=bool(legal_play[int(CardId.BUDDY_BUDDY_POFFIN)]),
+            poffin_basic_count=poffin_basic_count,
+            brock_in_hand=bool(legal_play[int(CardId.BROCKS_SCOUTING)]),
+            brock_basic_count=brock_basic_count,
+            can_use_thwackey=can_use_thwackey,
+            unused_thwackey=len(memory.unused_thwackey_serials),
+            poffin_in_deck=(
+                card_counts[
+                    (CardZone.DECK_MIN, int(CardId.BUDDY_BUDDY_POFFIN))
+                ] > 0
+            ),
+            festival_in_hand=bool(
+                not memory.first_hit_resolved
+                and legal_play[int(CardId.FESTIVAL_GROUNDS)]
+            ),
+            festival_in_deck=bool(
+                not memory.first_hit_resolved
+                and card_counts[
+                    (CardZone.DECK_MIN, int(CardId.FESTIVAL_GROUNDS))
+                ] > 0
+            ),
+            bangle_in_hand=bool(legal_play[int(CardId.BRAVE_BANGLE)]),
+            bangle_in_deck=bool(
+                card_counts[(CardZone.DECK_MIN, int(CardId.BRAVE_BANGLE))] > 0
+            ),
+            kieran_in_hand=bool(legal_play[int(CardId.KIERAN)]),
+            kieran_in_deck=bool(
+                card_counts[(CardZone.DECK_MIN, int(CardId.KIERAN))] > 0
+            ),
+            black_belt_in_hand=bool(
+                legal_play[int(CardId.BLACK_BELTS_TRAINING)]
+            ),
+            black_belt_in_deck=bool(
+                card_counts[
+                    (CardZone.DECK_MIN, int(CardId.BLACK_BELTS_TRAINING))
+                ] > 0
+            ),
+            black_belt_enabled=(
+                int(view.own_prize_count)
+                > len(view.opponent.get("prize") or ())
+            ),
+            attacker_line_count=dipplin_family_lines,
+            searcher_line_count=thwackey_family_lines,
+            third_attacker_reachable=third_attacker_reachable,
+            direct_attacker_count=direct_attacker_count,
+            direct_searcher_count=direct_searcher_count,
+            poffin_attacker_count=poffin_attacker_count,
+            poffin_searcher_count=poffin_searcher_count,
+            brock_attacker_count=poffin_attacker_count,
+            brock_searcher_count=poffin_searcher_count,
+        )
+        active_ko_plan = lookup_active_ko_route(active_route_state)
+    need_dipplin_line = int(dipplin_family_lines < 2)
+    need_thwackey_line = int(thwackey_family_lines < 2)
+    missing_search_components = need_dipplin_line + need_thwackey_line
+    direct_search_components = (
+        int(
+            need_dipplin_line
+            and bool(legal_play[int(CardId.APPLIN)])
+        )
+        + int(
+            need_thwackey_line
+            and bool(legal_play[int(CardId.GROOKEY)])
+        )
+    )
+    if (
+        missing_search_components > 0
+        and legal_play[int(CardId.BUDDY_BUDDY_POFFIN)]
+        and poffin_basic_count > 0
+    ):
+        direct_search_components = max(1, direct_search_components)
+    if (
+        missing_search_components > 0
+        and legal_play[int(CardId.POKE_PAD)]
+        and (
+            need_dipplin_line
+            and card_counts[(CardZone.DECK_MIN, int(CardId.APPLIN))] > 0
+            or need_thwackey_line
+            and card_counts[(CardZone.DECK_MIN, int(CardId.GROOKEY))] > 0
+        )
+    ):
+        direct_search_components = max(1, direct_search_components)
+    exact_basic_targets = (
+        int(
+            need_dipplin_line
+            and card_counts[(CardZone.DECK_MIN, int(CardId.APPLIN))] > 0
+        )
+        + int(
+            need_thwackey_line
+            and card_counts[(CardZone.DECK_MIN, int(CardId.GROOKEY))] > 0
+        )
+    )
+    poffin_covers_all_gaps = bool(
+        card_counts[
+            (CardZone.DECK_MIN, int(CardId.BUDDY_BUDDY_POFFIN))
+        ] > 0
+        and poffin_basic_count >= missing_search_components
+    )
+    exact_board_fallback = bool(
+        can_use_thwackey
+        and missing_search_components > 0
+        and (
+            poffin_covers_all_gaps
+            or (
+                len(memory.unused_thwackey_serials)
+                >= missing_search_components
+                and exact_basic_targets >= missing_search_components
+            )
+        )
+    )
+    search_economy_plan = lookup_search_economy(SearchEconomyState(
+        missing_component_count=missing_search_components,
+        direct_component_count=direct_search_components,
+        exact_searches_available=len(memory.unused_thwackey_serials),
+        exact_fallback_available=exact_board_fallback,
+        bug_set_available=bool(legal_play[int(CardId.BUG_CATCHING_SET)]),
+        unfair_stamp_available=bool(
+            previous_ko and legal_play[int(CardId.UNFAIR_STAMP)]
+        ),
+        lillie_available=bool(
+            legal_play[int(CardId.LILLIES_DETERMINATION)]
+        ),
+        judge_available=bool(legal_play[int(CardId.JUDGE)]),
+        supporter_available=memory.supporter_available,
+    ))
     boss_accessible = bool(
         legal_play[int(CardId.BOSSES_ORDERS)]
         or (
@@ -353,28 +587,24 @@ def extract_policy_features(
     )
     boss_class_requires_target_ko = boss_decision_class in (
         BossDecisionClass.FINAL,
+        BossDecisionClass.MAINLINE_EXTINCTION,
+        BossDecisionClass.FEZANDIPITI_EX,
         BossDecisionClass.MORE_PRIZES,
-        BossDecisionClass.TWO_HIT_BENCH,
-        BossDecisionClass.EVOLUTION_DENIAL,
-        BossDecisionClass.DOUBLE_KO,
-        BossDecisionClass.SUPPORT_FOLLOW_UP,
     )
-    # The flowchart first resolves a KO already available against the Active.
-    # Boss may overtake that route only for an explicitly stronger outcome:
-    # ending the game, taking more prizes, or the dedicated Supporter follow-up
-    # branch.  Equal-prize two-hit and denial targets must not spend Boss merely
-    # to replace one same-turn KO with another.
+    # The fixed flow is: finish the game, extinguish every public mainline,
+    # remove Fezandipiti ex, then attack the Active.  An ordinary higher-prize
+    # Boss route is consulted only after every guaranteed Active KO row failed.
     boss_outcome_can_overtake_active_ko = bool(
         boss_decision_class in (
             BossDecisionClass.FINAL,
-            BossDecisionClass.SUPPORT_FOLLOW_UP,
+            BossDecisionClass.MAINLINE_EXTINCTION,
+            BossDecisionClass.FEZANDIPITI_EX,
         )
-        or selected_boss_prizes > damage["active_prizes"]
     )
     boss_preferred = bool(
         boss_candidate_preferred
         and (
-            not damage["ko_now"]
+            active_ko_plan.reachability < KoReachability.GUARANTEED_KO
             or boss_outcome_can_overtake_active_ko
         )
         and (
@@ -397,10 +627,6 @@ def extract_policy_features(
     counter_slot_reserve = (
         max(0, 3 - dipplin_family_lines)
         + max(0, 2 - thwackey_family_lines)
-    )
-    bench_free = max(
-        0,
-        int(view.own.get("benchMax", 5)) - len(view.own_bench),
     )
     promotable_applin_route = _promotable_applin_route(
         view,
@@ -429,6 +655,48 @@ def extract_policy_features(
         discard=discard,
         card_counts=card_counts,
     )
+    ko_chain_plan = KoChainPlan(
+        chain_class=KoChainClass.BROKEN,
+        next_step=KoRouteStep.NONE,
+        goal_bench_count=0,
+        goal_bangle=False,
+        goal_support=DamageSupport.NONE,
+        first_hit_ko=False,
+        guaranteed_prizes_this_turn=0,
+        second_hit_damage=0,
+        worst_promotion_remaining_hp=0,
+        worst_promotion_index=-1,
+        resources_cover_game=False,
+    )
+    if active_route_state is not None and opponent is not None:
+        active_meta = view.catalog.card(opponent.id)
+        promotions = tuple(
+            _ko_chain_target(view, target)
+            for target in view.opponent_bench
+            if 0 < int(target.hp) <= 400
+        )
+        current_generation_already_counted = bool(
+            memory.first_attack_source_serial is not None
+        )
+        generations_after_current = max(
+            0,
+            MAX_ATTACKER_GENERATIONS
+            - int(memory.attacker_generations_used)
+            - int(not current_generation_already_counted),
+        )
+        ko_chain_plan = lookup_ko_chain(KoChainState(
+            route=active_route_state,
+            active=KoTarget(
+                hp=active_route_state.target_hp,
+                prizes=1 if active_meta is None else int(active_meta.prize_value),
+                target_ex=active_route_state.target_ex,
+                grass_weakness=active_route_state.grass_weakness,
+            ),
+            promotions=promotions,
+            next_attack_preparation_class=next_attack_preparation_class,
+            own_prizes_remaining=int(view.own_prize_count),
+            future_attacker_generations=generations_after_current,
+        ))
     energy_retreat_prep_route = _energy_retreat_prep_route(
         view,
         memory,
@@ -445,10 +713,8 @@ def extract_policy_features(
         hand=hand,
         card_counts=card_counts,
     )
-    # Restrict the extension to pure damage routes.  Final-win, higher-prize,
-    # evolution-denial, attack-denial, and support-follow-up Boss classes keep
-    # the flowchart decision.  The Active route must award no fewer prizes and
-    # must KO either already or after the added Applin raises Bench damage.
+    # Legacy damage-only Boss classes remain in the schema for compatibility,
+    # but the canonical selector no longer emits them.
     bench_ko_strictly_dominates_boss = bool(
         boss_candidate_preferred
         and boss_decision_class in (
@@ -497,7 +763,7 @@ def extract_policy_features(
         ),
         ScalarFeature.FIRST_HIT_RESOLVED: int(first_hit_resolved),
         ScalarFeature.PREVIOUS_OPPONENT_KO: int(previous_ko),
-        ScalarFeature.CAN_DIPPLIN_ATTACK: int(_has_attack(options, AttackId.DIPPLIN_DO_THE_WAVE)),
+        ScalarFeature.CAN_DIPPLIN_ATTACK: int(can_dipplin_attack),
         ScalarFeature.CAN_BUDEW_ATTACK: int(_has_attack(options, AttackId.BUDEW_ITTY_BITTY_POLLEN)),
         ScalarFeature.CAN_RETREAT: int(_has_option(options, OptionType.RETREAT)),
         ScalarFeature.CAN_END: int(_has_option(options, OptionType.END)),
@@ -672,6 +938,48 @@ def extract_policy_features(
         ScalarFeature.NEXT_TURN_ATTACK_ROUTE: int(next_turn_attack_route),
         ScalarFeature.NEXT_ATTACK_PREPARATION_CLASS: int(
             next_attack_preparation_class
+        ),
+        ScalarFeature.ACTIVE_KO_REACHABILITY: int(
+            active_ko_plan.reachability
+        ),
+        ScalarFeature.ACTIVE_KO_NEXT_STEP: int(active_ko_plan.next_step),
+        ScalarFeature.ACTIVE_KO_FIRST_HIT: int(active_ko_plan.first_hit_ko),
+        ScalarFeature.ACTIVE_KO_HITS_REMAINING: int(
+            active_ko_plan.hits_remaining_after_ko
+        ),
+        ScalarFeature.ACTIVE_KO_GOAL_BENCH: int(
+            active_ko_plan.goal_bench_count
+        ),
+        ScalarFeature.ACTIVE_KO_ROUTE_DAMAGE: int(active_ko_plan.damage),
+        ScalarFeature.SEARCH_ECONOMY_CLASS: int(
+            search_economy_plan.route_class
+        ),
+        ScalarFeature.SEARCH_ECONOMY_NEXT_STEP: int(
+            search_economy_plan.next_step
+        ),
+        ScalarFeature.SEARCH_ECONOMY_RESERVED_EXACT: int(
+            search_economy_plan.reserved_exact_searches
+        ),
+        ScalarFeature.KO_CHAIN_CLASS: int(ko_chain_plan.chain_class),
+        ScalarFeature.KO_CHAIN_NEXT_STEP: int(ko_chain_plan.next_step),
+        ScalarFeature.KO_CHAIN_GOAL_BENCH: int(
+            ko_chain_plan.goal_bench_count
+        ),
+        ScalarFeature.KO_CHAIN_GUARANTEED_PRIZES: int(
+            ko_chain_plan.guaranteed_prizes_this_turn
+        ),
+        ScalarFeature.KO_CHAIN_SECOND_HIT_DAMAGE: int(
+            ko_chain_plan.second_hit_damage
+        ),
+        ScalarFeature.KO_CHAIN_WORST_REMAINING_HP: int(
+            ko_chain_plan.worst_promotion_remaining_hp
+        ),
+        ScalarFeature.KO_CHAIN_RESOURCES_COVER_GAME: int(
+            ko_chain_plan.resources_cover_game
+        ),
+        ScalarFeature.KO_CHAIN_BENCH_ADDITIONS: max(
+            0,
+            int(ko_chain_plan.goal_bench_count) - len(view.own_bench),
         ),
         ScalarFeature.BENCH_KO_STRICTLY_DOMINATES_BOSS: int(
             bench_ko_strictly_dominates_boss
@@ -1622,6 +1930,19 @@ def _damage_features(
         "active_prizes": 1 if opponent_meta is None else int(opponent_meta.prize_value),
         "best_boss_prizes": best_boss_prizes,
     }
+
+
+def _ko_chain_target(view: GameView, target: PokemonRef) -> KoTarget:
+    meta = view.catalog.card(target.id)
+    hp = max(10, min(400, ((int(target.hp) + 9) // 10) * 10))
+    return KoTarget(
+        hp=hp,
+        prizes=1 if meta is None else int(meta.prize_value),
+        target_ex=bool(meta is not None and (meta.ex or meta.mega_ex)),
+        grass_weakness=bool(
+            meta is not None and meta.weakness == int(EnergyType.GRASS)
+        ),
+    )
 
 
 def _attacker_order(pokemon: PokemonRef) -> tuple[int, int, int, int, int]:

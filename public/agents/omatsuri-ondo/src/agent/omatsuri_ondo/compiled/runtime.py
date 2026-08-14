@@ -4,6 +4,7 @@ from common_strategy import GameView
 
 from .action_selectors import select_action
 from .features import assign_roles, extract_policy_features
+from .ko_chain import KoChainClass
 from .memory import CompiledMemory
 from .safe_fallback import fixed_safe_fallback
 from .schema import (
@@ -129,9 +130,32 @@ class CompiledPolicyRuntime:
                 FeatureKind.SCALAR,
                 int(ScalarFeature.NEXT_ATTACK_PREPARATION_CLASS),
             )),
+            "ko_chain_class": features.read(FeatureQuery(
+                FeatureKind.SCALAR,
+                int(ScalarFeature.KO_CHAIN_CLASS),
+            )),
+            "ko_chain_guaranteed_prizes": features.read(FeatureQuery(
+                FeatureKind.SCALAR,
+                int(ScalarFeature.KO_CHAIN_GUARANTEED_PRIZES),
+            )),
+            "ko_chain_second_hit_damage": features.read(FeatureQuery(
+                FeatureKind.SCALAR,
+                int(ScalarFeature.KO_CHAIN_SECOND_HIT_DAMAGE),
+            )),
+            "ko_chain_worst_remaining_hp": features.read(FeatureQuery(
+                FeatureKind.SCALAR,
+                int(ScalarFeature.KO_CHAIN_WORST_REMAINING_HP),
+            )),
             "selected": selected,
             "fallback_reason": fallback_reason,
         }
+        trace_event["source_turn_chain_prepared"] = int(
+            int(trace_event["ko_chain_class"])
+            in (
+                int(KoChainClass.GAME_END_GUARANTEED),
+                int(KoChainClass.GAME_WIN_THIS_TURN),
+            )
+        )
         if (
             fallback_reason is None
             and action is not None
@@ -258,7 +282,10 @@ def _commit_action(
         and option.source is not None
         and option.source.serial is not None
     ):
-        memory.record_attack_selected(int(option.source.serial))
+        memory.record_attack_selected(
+            int(option.source.serial),
+            attack_id=int(action.attack_id),
+        )
 
 
 def _abandon_action(

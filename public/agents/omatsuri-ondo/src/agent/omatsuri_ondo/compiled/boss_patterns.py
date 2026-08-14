@@ -12,17 +12,29 @@ from .boss_target_table import (
     BOSS_CLASS_COUNT,
     BOSS_TARGET_SLOT_TABLE,
 )
+from .opponent_attack_profiles import (
+    OpponentAttackProfile,
+    lookup_opponent_attack_profile,
+    target_extinguishes_mainline,
+)
+
+
+FEZANDIPITI_EX_CARD_ID = 140
 
 
 class BossDecisionClass(IntEnum):
     NONE = 0
     FINAL = 1
-    MORE_PRIZES = 2
-    TWO_HIT_BENCH = 3
-    EVOLUTION_DENIAL = 4
-    ATTACK_DENIAL = 5
-    DOUBLE_KO = 6
-    SUPPORT_FOLLOW_UP = 7
+    MAINLINE_EXTINCTION = 2
+    FEZANDIPITI_EX = 3
+    MORE_PRIZES = 4
+    # Legacy classes stay addressable for public compatibility, but the
+    # compiled selector no longer emits them as standalone Boss purposes.
+    TWO_HIT_BENCH = 5
+    EVOLUTION_DENIAL = 6
+    ATTACK_DENIAL = 7
+    DOUBLE_KO = 8
+    SUPPORT_FOLLOW_UP = 9
 
 
 @dataclass(frozen=True)
@@ -86,32 +98,24 @@ def _bench_class_vector(
     view: GameView,
     bench: tuple[PokemonRef, ...],
 ) -> tuple[BossDecisionClass, ...]:
-    one_hit_flags = tuple(
-        target.serial is not None
-        and _dipplin_damage(view, target, hit_count=1) >= max(0, int(target.hp))
-        for target in bench
-    )
-    one_hit_count = sum(one_hit_flags)
-    active_one_hit = bool(
-        view.opponent_active is not None
-        and _dipplin_damage(view, view.opponent_active, hit_count=1)
-        >= max(0, int(view.opponent_active.hp))
-    )
     active_prizes = _prizes(view, view.opponent_active)
     remaining_prizes = max(0, int(view.own_prize_count))
-    festival_active = int(CardId.FESTIVAL_GROUNDS) in view.public_stadium_ids
+    hit_count = (
+        2
+        if int(CardId.FESTIVAL_GROUNDS) in view.public_stadium_ids
+        else 1
+    )
+    opponent_profile = lookup_opponent_attack_profile(view)
     classes = tuple(
         _target_class(
             view,
             target,
-            one_hit=bool(one_hit_flags[slot]),
-            one_hit_count=one_hit_count,
-            active_one_hit=active_one_hit,
             active_prizes=active_prizes,
             remaining_prizes=remaining_prizes,
-            festival_active=festival_active,
+            hit_count=hit_count,
+            opponent_profile=opponent_profile,
         )
-        for slot, target in enumerate(bench)
+        for target in bench
     )
     return (*classes, *((BossDecisionClass.NONE,) * (BOSS_BENCH_SLOTS - len(classes))))
 
@@ -120,74 +124,35 @@ def _target_class(
     view: GameView,
     target: PokemonRef,
     *,
-    one_hit: bool,
-    one_hit_count: int,
-    active_one_hit: bool,
     active_prizes: int,
     remaining_prizes: int,
-    festival_active: bool,
+    hit_count: int,
+    opponent_profile: OpponentAttackProfile | None,
 ) -> BossDecisionClass:
     if target.serial is None:
         return BossDecisionClass.NONE
-    two_hit = (
-        festival_active
-        and _dipplin_damage(view, target, hit_count=2)
-        >= max(0, int(target.hp))
+    target_ko_now = _damage_reaches_hp(
+        _dipplin_damage(view, target, hit_count=hit_count),
+        target.hp,
     )
-    attack_denial = _has_public_ready_attack(view, target)
-    if not one_hit and not two_hit and not attack_denial:
+    if not target_ko_now:
         return BossDecisionClass.NONE
     prizes = _prizes(view, target)
-    return _decision_class(
-        final_win=(
-            one_hit and remaining_prizes > 0 and prizes >= remaining_prizes
-        ),
-        prizes=prizes,
-        active_prizes=active_prizes,
-        one_hit=one_hit,
-        two_hit=two_hit,
-        evolution_denial=(
-            one_hit
-            and _denies_valuable_evolution(
-                view,
-                target,
-                one_hit_damage=_dipplin_damage(view, target, hit_count=1),
-            )
-        ),
-        attack_denial=attack_denial,
-        double_knockout=(one_hit and one_hit_count >= 2),
-        active_one_hit=active_one_hit,
-        support_follow_up=(remaining_prizes >= 4 and one_hit and active_one_hit),
-    )
-
-
-def _decision_class(
-    *,
-    final_win: bool,
-    prizes: int,
-    active_prizes: int,
-    one_hit: bool,
-    two_hit: bool,
-    evolution_denial: bool,
-    attack_denial: bool,
-    double_knockout: bool,
-    active_one_hit: bool,
-    support_follow_up: bool,
-) -> BossDecisionClass:
-    if final_win:
+    if remaining_prizes > 0 and prizes >= remaining_prizes:
         return BossDecisionClass.FINAL
-    if one_hit and prizes > active_prizes:
+    if (
+        opponent_profile is not None
+        and target_extinguishes_mainline(
+            view,
+            opponent_profile,
+            target_serial=int(target.serial),
+        )
+    ):
+        return BossDecisionClass.MAINLINE_EXTINCTION
+    if int(target.id) == FEZANDIPITI_EX_CARD_ID:
+        return BossDecisionClass.FEZANDIPITI_EX
+    if prizes > active_prizes:
         return BossDecisionClass.MORE_PRIZES
-    if not one_hit and two_hit:
-        return BossDecisionClass.TWO_HIT_BENCH
-    if evolution_denial:
-        return BossDecisionClass.EVOLUTION_DENIAL
-    if attack_denial:
-        return BossDecisionClass.ATTACK_DENIAL
-    if double_knockout or (one_hit and not active_one_hit):
-        return BossDecisionClass.DOUBLE_KO
-    if support_follow_up:
-        return BossDecisionClass.SUPPORT_FOLLOW_UP
     return BossDecisionClass.NONE
 
 
@@ -259,4 +224,9 @@ def _has_public_ready_attack(view: GameView, target: PokemonRef) -> bool:
     )
 
 
-__all__ = ["BossDecisionClass", "BossPattern", "lookup_boss_pattern"]
+__all__ = [
+    "FEZANDIPITI_EX_CARD_ID",
+    "BossDecisionClass",
+    "BossPattern",
+    "lookup_boss_pattern",
+]
