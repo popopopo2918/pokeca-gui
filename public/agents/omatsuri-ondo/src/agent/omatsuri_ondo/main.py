@@ -20,8 +20,14 @@ def _resolve_project_root() -> Path:
 
 
 _PROJECT_ROOT = str(_resolve_project_root())
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
+
+
+def _ensure_project_root() -> None:
+    if _PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, _PROJECT_ROOT)
+
+
+_ensure_project_root()
 
 from src.agent.omatsuri_ondo.cards import DECK
 from src.agent.omatsuri_ondo.policy import AgentSession
@@ -33,6 +39,9 @@ _session: AgentSession | None = None
 def _current_session() -> AgentSession:
     global _session
     if _session is None:
+        # Kaggle removes the submission root from sys.path after the initial
+        # deck-return call. Restore it before CardCatalog lazily imports cg.
+        _ensure_project_root()
         _session = AgentSession()
     return _session
 

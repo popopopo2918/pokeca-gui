@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fixedAgentDeckSource } from './agentDeck';
+import { authoritativeDeckSource, fixedAgentDeckSource } from './agentDeck';
 
 const agents = [
   {
@@ -37,5 +37,17 @@ describe('fixedAgentDeckSource', () => {
     expect(fixedAgentDeckSource('agent', 'normal', agents)).toBeNull();
     expect(fixedAgentDeckSource('self', 'alakazam-playbook', agents)).toBeNull();
     expect(fixedAgentDeckSource('agent', 'missing', agents)).toBeNull();
+  });
+
+  it('overrides a stale UI source with the fixed agent deck at game start', () => {
+    expect(authoritativeDeckSource(
+      'agent',
+      'omatsuri-ondo',
+      'preset:sample',
+      agents,
+    )).toBe('omatsuri-ondo');
+    expect(authoritativeDeckSource('agent', 'normal', 'preset:sample', agents)).toBe(
+      'preset:sample',
+    );
   });
 });

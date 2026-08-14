@@ -106,8 +106,11 @@ type AgentManifest = {
     id: string;
     path?: string;
     deckUrl?: string;
+    fixedDeck?: boolean;
   }>;
 };
+
+type ManifestAgent = NonNullable<AgentManifest['agents']>[number];
 
 const CODEX_KIND_BY_OPTION: Record<number, CodexDecisionKind> = {
   [CabtOptionType.PLAY]: 'play',
@@ -363,8 +366,8 @@ export class LocalEngineController {
 
   private async start(payload: any): Promise<EngineResponse> {
     const playerControls = normalizePlayerControls(payload);
-    const player1Deck = resolveDeck(payload?.player1?.deck ?? [], 'あなたのデッキ');
-    const player2Deck = resolveDeck(payload?.player2?.deck ?? [], 'プレイヤー2のデッキ');
+    const player1Deck = resolvePlayerDeck(payload?.player1, playerControls[0], 'あなたのデッキ');
+    const player2Deck = resolvePlayerDeck(payload?.player2, playerControls[1], 'プレイヤー2のデッキ');
     const agentPaths = [
       playerControls[0] === 'agent' ? agentPathForId(payload?.player1?.agentId) : undefined,
       playerControls[1] === 'agent' ? agentPathForId(payload?.player2?.agentId) : undefined,
@@ -1239,6 +1242,20 @@ function resolveDeck(cards: unknown[], label: string): number[] {
   return ids;
 }
 
+function resolvePlayerDeck(
+  player: { deck?: unknown[]; agentId?: string } | undefined,
+  control: string,
+  label: string,
+): number[] {
+  if (control === 'agent') {
+    const fixedDeck = fixedAgentDeckForId(player?.agentId);
+    if (fixedDeck) {
+      return fixedDeck;
+    }
+  }
+  return resolveDeck(player?.deck ?? [], label);
+}
+
 function resolveCardId(card: unknown, label: string): number {
   if (typeof card === 'number' && Number.isInteger(card)) {
     return card;
@@ -1310,12 +1327,43 @@ function agentPathForId(agentId: string | undefined): string | undefined {
   if (agentId.startsWith('ws:')) {
     return resolveWorkspaceAgentPath(agentId);
   }
+  return manifestAgentForId(agentId)?.path;
+}
+
+function fixedAgentDeckForId(agentId: string | undefined): number[] | undefined {
+  const agent = manifestAgentForId(agentId);
+  if (!agent?.fixedDeck) {
+    return undefined;
+  }
+  if (!agent.deckUrl) {
+    throw new Error(`固定AI「${agent.id}」に専用デッキが設定されていません。`);
+  }
+  const publicRoot = path.resolve(FRONTEND_ROOT, 'public');
+  const relativeDeckPath = agent.deckUrl.replace(/^\/+/, '');
+  const deckPath = path.resolve(publicRoot, relativeDeckPath);
+  if (deckPath !== publicRoot && !deckPath.startsWith(`${publicRoot}${path.sep}`)) {
+    throw new Error(`固定AI「${agent.id}」の専用デッキURLが不正です。`);
+  }
+  if (!fs.existsSync(deckPath)) {
+    throw new Error(`固定AI「${agent.id}」の専用デッキが見つかりません。`);
+  }
+  const rows = fs.readFileSync(deckPath, 'utf8')
+    .split(/\r?\n/)
+    .map((row) => row.trim())
+    .filter(Boolean);
+  return resolveDeck(rows, `固定AI「${agent.id}」の専用デッキ`);
+}
+
+function manifestAgentForId(agentId: string | undefined): ManifestAgent | undefined {
+  if (!agentId) {
+    return undefined;
+  }
   const manifestPath = path.join(FRONTEND_ROOT, 'public', 'agents', 'agents.json');
   if (!fs.existsSync(manifestPath)) {
     return undefined;
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as AgentManifest;
-  return manifest.agents?.find((agent) => agent.id === agentId)?.path;
+  return manifest.agents?.find((agent) => agent.id === agentId);
 }
 
 function attachedCardForOption(pokemonCard: { energyCards?: CabtCard[]; tools?: CabtCard[] } | null | undefined, option: CabtOption) {

@@ -10,3 +10,12 @@ export function fixedAgentDeckSource(
   const agent = agents.find((candidate) => candidate.id === agentId);
   return agent?.fixedDeck === true && !!agent.deckUrl ? agent.id : null;
 }
+
+export function authoritativeDeckSource(
+  control: PlayerControl,
+  agentId: string,
+  selectedDeckSource: string,
+  agents: readonly AgentOption[],
+): string {
+  return fixedAgentDeckSource(control, agentId, agents) ?? selectedDeckSource;
+}

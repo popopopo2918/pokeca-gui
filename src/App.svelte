@@ -41,7 +41,7 @@
     type PlayerControl,
   } from './lib/game/httpClient';
   import { validateControls } from './lib/game/controlMode';
-  import { fixedAgentDeckSource } from './lib/game/agentDeck';
+  import { authoritativeDeckSource, fixedAgentDeckSource } from './lib/game/agentDeck';
   import { formatCabtDeckList } from './lib/game/deckImport';
   import { labelFor } from './lib/game/labels';
   import cardRows from './lib/cabt/cardData.generated.json';
@@ -1128,17 +1128,41 @@
   }
 
   async function ensureSelectedDecksLoaded() {
-    const player1Loaded = await ensureDeckLoaded(player1DeckSource, 0);
-    const player2Loaded = await ensureDeckLoaded(player2DeckSource, 1);
+    const authoritativePlayer1Source = authoritativeDeckSource(
+      player1Control,
+      player1AgentId,
+      player1DeckSource,
+      agents,
+    );
+    const authoritativePlayer2Source = authoritativeDeckSource(
+      player2Control,
+      player2AgentId,
+      player2DeckSource,
+      agents,
+    );
+    const player1Fixed = authoritativePlayer1Source !== player1DeckSource;
+    const player2Fixed = authoritativePlayer2Source !== player2DeckSource;
+    player1DeckSource = authoritativePlayer1Source;
+    player2DeckSource = authoritativePlayer2Source;
+    const player1Loaded = await ensureDeckLoaded(
+      authoritativePlayer1Source,
+      0,
+      player1Fixed || player1FixedDeckSource !== null,
+    );
+    const player2Loaded = await ensureDeckLoaded(
+      authoritativePlayer2Source,
+      1,
+      player2Fixed || player2FixedDeckSource !== null,
+    );
     return player1Loaded && player2Loaded;
   }
 
-  async function ensureDeckLoaded(deckSource: string, playerIndex: number) {
+  async function ensureDeckLoaded(deckSource: string, playerIndex: number, forceReload = false) {
     if (deckSource === 'import') {
       return true;
     }
     const lastLoaded = playerIndex === 0 ? lastLoadedPlayer1DeckSource : lastLoadedPlayer2DeckSource;
-    if (lastLoaded === deckSource) {
+    if (!forceReload && lastLoaded === deckSource) {
       return true;
     }
     const deckUrl = agents.find((agent) => agent.id === deckSource)?.deckUrl;

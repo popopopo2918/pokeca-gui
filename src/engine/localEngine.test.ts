@@ -95,6 +95,32 @@ describe('LocalEngineController', () => {
     ]);
   });
 
+  it('uses the bundled numeric deck for a fixed agent even when the UI deck is stale', async () => {
+    const engine = new LocalEngineController() as any;
+    let bridgePayload: Record<string, unknown> | undefined;
+    engine.bridge = {
+      stop: () => {},
+      request: async (payload: Record<string, unknown>) => {
+        bridgePayload = payload;
+        return { ok: true, observation: null, cards: [], attacks: [] };
+      },
+    };
+    const staleDeck = Array(60).fill('基本草エネルギー SVE');
+    staleDeck[8] = 'カジッチュ TWM';
+
+    const res = await engine.start({
+      player1: { deck: Array(60).fill(1), control: 'self' },
+      player2: { deck: staleDeck, control: 'agent', agentId: 'omatsuri-ondo' },
+    });
+
+    expect(res.ok).toBe(true);
+    expect((bridgePayload?.deck1 as number[]).slice(0, 10)).toEqual([
+      1, 1, 1, 1, 1, 89, 89, 89, 89, 90,
+    ]);
+    expect(bridgePayload?.deck1).toHaveLength(60);
+    expect((bridgePayload?.deck1 as unknown[]).every(Number.isInteger)).toBe(true);
+  });
+
   it('matches real CABT main-phase hand options with omitted source fields', () => {
     const engine = new LocalEngineController() as any;
     const payload = {
