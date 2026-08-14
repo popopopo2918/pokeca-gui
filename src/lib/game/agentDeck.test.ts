@@ -19,6 +19,12 @@ const agents = [
     deckUrl: '/agents/konchu-e/deck.csv',
     fixedDeck: true,
   },
+  {
+    id: 'omatsuri-ondo',
+    name: 'おまつりおんどAI（カミッチュ）',
+    deckUrl: '/agents/omatsuri-ondo/deck.csv',
+    fixedDeck: true,
+  },
 ];
 
 describe('fixedAgentDeckSource', () => {
@@ -27,6 +33,7 @@ describe('fixedAgentDeckSource', () => {
       'alakazam-playbook',
     );
     expect(fixedAgentDeckSource('agent', 'konchu-e', agents)).toBe('konchu-e');
+    expect(fixedAgentDeckSource('agent', 'omatsuri-ondo', agents)).toBe('omatsuri-ondo');
     expect(fixedAgentDeckSource('agent', 'normal', agents)).toBeNull();
     expect(fixedAgentDeckSource('self', 'alakazam-playbook', agents)).toBeNull();
     expect(fixedAgentDeckSource('agent', 'missing', agents)).toBeNull();

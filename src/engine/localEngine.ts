@@ -590,6 +590,22 @@ export class LocalEngineController {
 
   private applyBridgeResponse(response: BridgeResponse, directPlayback: SequencePlayback = 'animate'): void {
     if (!response.ok) {
+      // A Python command can mutate CABT before an agent raises. Apply the
+      // returned live snapshot first so the next UI choice never targets a
+      // stale prompt from the previous turn.
+      if (Object.prototype.hasOwnProperty.call(response, 'trueHands')) {
+        this.trueHands = response.trueHands ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(response, 'truePrizes')) {
+        this.truePrizes = response.truePrizes ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(response, 'observation')) {
+        this.observation = this.withKnownHands(response.observation ?? null);
+        this.observationVersion += 1;
+      }
+      if (typeof response.undoCount === 'number') {
+        this.undoCount = response.undoCount;
+      }
       throw new Error(response.traceback ? `${response.error}\n${response.traceback}` : (response.error ?? 'CABTエンジンでエラーが発生しました。'));
     }
     if (response.cards && response.attacks) {

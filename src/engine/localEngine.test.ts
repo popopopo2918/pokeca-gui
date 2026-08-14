@@ -582,6 +582,88 @@ describe('LocalEngineController', () => {
       cards: [expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 })],
     });
   });
+
+  it('synchronizes the latest bridge snapshot before reporting an agent error', () => {
+    const engine = new LocalEngineController() as any;
+    engine.observation = {
+      select: {
+        type: 1,
+        context: CabtSelectContext.MAIN,
+        minCount: 1,
+        maxCount: 1,
+        option: [{ type: CabtOptionType.END }],
+      },
+      logs: [],
+      current: currentState({ turn: 3, yourIndex: 0 }),
+    };
+    engine.observationVersion = 7;
+    const latest = {
+      select: {
+        type: 1,
+        context: CabtSelectContext.MAIN,
+        minCount: 1,
+        maxCount: 1,
+        option: [{ type: CabtOptionType.END }],
+      },
+      logs: [],
+      current: currentState({ turn: 4, yourIndex: 1 }),
+    };
+
+    expect(() => engine.applyBridgeResponse({
+      ok: false,
+      id: 9,
+      error: 'agent failed',
+      traceback: 'python traceback',
+      observation: latest,
+      autoSteps: [],
+      undoCount: 2,
+      trueHands: { 0: [{ id: 1001 }] },
+      truePrizes: { 1: [{ id: 2001 }] },
+    })).toThrow('agent failed');
+
+    expect(engine.observation).toEqual(latest);
+    expect(engine.observationVersion).toBe(8);
+    expect(engine.undoCount).toBe(2);
+    expect(engine.trueHands).toEqual({ 0: [{ id: 1001 }] });
+    expect(engine.truePrizes).toEqual({ 1: [{ id: 2001 }] });
+  });
+
+  it('sends the third remaining prize as selection index two exactly once', async () => {
+    const engine = new LocalEngineController() as any;
+    const current = currentState({ turn: 5, yourIndex: 0 });
+    engine.observation = {
+      select: {
+        type: 1,
+        context: CabtSelectContext.TO_HAND,
+        minCount: 1,
+        maxCount: 1,
+        option: [0, 1, 2].map((index) => ({
+          type: CabtOptionType.CARD,
+          area: CabtAreaType.PRIZE,
+          index,
+          playerIndex: 0,
+        })),
+      },
+      logs: [],
+      current,
+    };
+    const requests: Array<Record<string, unknown>> = [];
+    engine.bridge = {
+      request: async (request: Record<string, unknown>) => {
+        requests.push(request);
+        return {
+          ok: true,
+          id: 10,
+          observation: { select: null, logs: [], current },
+          autoSteps: [],
+        };
+      },
+    };
+
+    await engine.applySelection([2]);
+
+    expect(requests).toEqual([{ command: 'select', selection: [2] }]);
+  });
 });
 
 function currentState(overrides: Record<string, unknown> = {}) {

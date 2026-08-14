@@ -327,7 +327,12 @@ class AgentMemory:
         for log in view.raw.get("logs") or ():
             if not isinstance(log, dict):
                 continue
-            log_type = int(log.get("type", -1))
+            try:
+                log_type = int(log.get("type", -1))
+            except (TypeError, ValueError):
+                # GUI may add display-only log kinds (for example "ability").
+                # They are not CABT public-action logs and must not break policy memory.
+                continue
             if (
                 log_type not in _PUBLIC_OPPONENT_LOG_TYPES
                 or int(log.get("playerIndex", -1)) != opponent_index

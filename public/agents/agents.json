@@ -22,6 +22,14 @@
       "fixedDeck": true
     },
     {
+      "id": "omatsuri-ondo",
+      "name": "おまつりおんどAI（カミッチュ）",
+      "description": "固定打点表とバチンキーの確定検索で、カミッチュの2回攻撃と連続KOを狙います。",
+      "path": "public/agents/omatsuri-ondo/main.py",
+      "deckUrl": "/agents/omatsuri-ondo/deck.csv",
+      "fixedDeck": true
+    },
+    {
       "id": "official-random-abomasnow",
       "name": "公式ランダムサンプル（メガユキノオーex）",
       "description": "Kaggle公式サンプル：付属のメガユキノオーexデッキで、有効な手をランダムに選びます。",

@@ -88,9 +88,33 @@ def ability_logs_for(obs_before: dict[str, Any] | None, action: Any) -> list[dic
     return logs
 
 
-def prepend_logs(obs: dict[str, Any] | None, logs: list[dict[str, Any]]) -> None:
-    if obs is not None and logs:
-        obs["logs"] = logs + (obs.get("logs") or [])
+def prepend_logs(
+    obs: dict[str, Any] | None,
+    logs: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Return a display-only observation without modifying CABT's native state."""
+    if obs is None or not logs:
+        return obs
+    display = dict(obs)
+    display["logs"] = list(logs) + list(obs.get("logs") or [])
+    return display
+
+
+def build_error_response(session: Any, error: Exception) -> dict[str, Any]:
+    """Preserve the live engine snapshot when a command fails after mutation."""
+    response: dict[str, Any] = {
+        "ok": False,
+        "error": str(error),
+        "traceback": traceback.format_exc(),
+    }
+    if not getattr(session, "active", False):
+        return response
+    try:
+        snapshot = session.snapshot()
+    except Exception:
+        return response
+    response.update({key: value for key, value in snapshot.items() if key != "ok"})
+    return response
 
 
 def to_jsonable(value: Any) -> Any:
@@ -210,8 +234,8 @@ class Session:
         if not self.active:
             raise RuntimeError("No active CABT battle.")
         ability = ability_logs_for(self.obs, selection)
-        selected_step = self.do_select(selection, human=True)
-        prepend_logs(selected_step, ability)
+        native_step = self.do_select(selection, human=True)
+        selected_step = prepend_logs(native_step, ability) or native_step
         auto_steps = self.play_ai_turns()
         return self.snapshot([selected_step, *auto_steps])
 
@@ -415,9 +439,9 @@ class Session:
                 return auto_steps
             action = self.agents[player_index](self.obs)
             ability = ability_logs_for(self.obs, action)
-            step = self.do_select(action, human=False)
-            prepend_logs(step, ability)
-            auto_steps.append(step)
+            native_step = self.do_select(action, human=False)
+            display_step = prepend_logs(native_step, ability) or native_step
+            auto_steps.append(display_step)
         raise RuntimeError(f"AI auto-play limit exceeded ({MAX_AUTO_STEPS} selections).")
 
     def undo_count(self) -> int:
@@ -629,11 +653,7 @@ def main() -> None:
             message = json.loads(line)
             response = handle(session, message)
         except Exception as error:
-            response = {
-                "ok": False,
-                "error": str(error),
-                "traceback": traceback.format_exc(),
-            }
+            response = build_error_response(session, error)
         response["id"] = message.get("id") if "message" in locals() else None
         print(json.dumps(response, ensure_ascii=False), flush=True)
 

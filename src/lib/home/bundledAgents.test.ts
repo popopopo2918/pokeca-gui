@@ -129,6 +129,27 @@ describe('bundled Konchu E agent', () => {
     ).toBe(false);
   });
 
+  it('ignores display-only ability logs when observing the opponent', () => {
+    const agentRoot = path.join(root, 'public', 'agents', 'konchu-e');
+    const python = process.env.PYTHON || 'python';
+    const program = [
+      'import pathlib, sys, types',
+      'root = pathlib.Path(sys.argv[1]).resolve()',
+      'sys.path.insert(0, str(root))',
+      'from memory import AgentMemory',
+      'view = types.SimpleNamespace(current={"turn": 4}, own_index=1, raw={"logs": [{"type": "ability", "playerIndex": 0}]}, opponent_public_card_ids=set(), opponent_discard_ids=set(), opponent_public_ace_spec_ids=set())',
+      'memory = AgentMemory()',
+      'memory.observe_public_opponent(view)',
+      'print("ok")',
+    ].join('; ');
+    const result = spawnSync(python, ['-B', '-c', program, agentRoot], {
+      encoding: 'utf8',
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout.trim()).toBe('ok');
+  });
+
   it('keeps the fetched deck.csv aligned with the Python setup deck', () => {
     const deckRows = fs
       .readFileSync(
@@ -167,5 +188,50 @@ describe('bundled Konchu E agent', () => {
     const pythonDeck = JSON.parse(result.stdout) as { deck: number[] };
     expect(pythonDeck.deck).toHaveLength(60);
     expect(pythonDeck.deck).toEqual(fetchedDeck);
+  });
+});
+
+describe('bundled Omatsuri Ondo agent', () => {
+  it('registers the canonical runtime and fixed sixty-card deck', () => {
+    const agent = manifest.agents.find((candidate) => candidate.id === 'omatsuri-ondo');
+    expect(agent).toMatchObject({
+      id: 'omatsuri-ondo',
+      name: 'おまつりおんどAI（カミッチュ）',
+      path: 'public/agents/omatsuri-ondo/main.py',
+      deckUrl: '/agents/omatsuri-ondo/deck.csv',
+      fixedDeck: true,
+    });
+
+    const deck = fs
+      .readFileSync(path.join(root, 'public', 'agents', 'omatsuri-ondo', 'deck.csv'), 'utf8')
+      .split(/\r?\n/u)
+      .map((row) => row.trim())
+      .filter(Boolean);
+    expect(deck).toHaveLength(60);
+    expect(deck.every((row) => /^\d+$/u.test(row))).toBe(true);
+  });
+
+  it('imports in isolation without native binaries or development-only modules', () => {
+    const agentRoot = path.join(root, 'public', 'agents', 'omatsuri-ondo');
+    const mainPath = path.join(agentRoot, 'main.py');
+    const python = process.env.PYTHON || 'python';
+    const program = [
+      'import importlib.util, json, pathlib, sys',
+      'path = pathlib.Path(sys.argv[1]).resolve()',
+      'spec = importlib.util.spec_from_file_location("cabt_bundled_omatsuri", path)',
+      'module = importlib.util.module_from_spec(spec)',
+      'spec.loader.exec_module(module)',
+      'print(json.dumps({"deckSize": len(module.agent({"select": None}))}))',
+    ].join('; ');
+    const result = spawnSync(python, ['-B', '-c', program, mainPath], {
+      cwd: agentRoot,
+      encoding: 'utf8',
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ deckSize: 60 });
+    expect(fs.existsSync(path.join(agentRoot, 'cg'))).toBe(false);
+    expect(fs.existsSync(path.join(agentRoot, 'src', 'agent', 'omatsuri_ondo', 'tests'))).toBe(false);
+    expect(fs.existsSync(path.join(agentRoot, 'src', 'agent', 'omatsuri_ondo', 'rules'))).toBe(false);
   });
 });
